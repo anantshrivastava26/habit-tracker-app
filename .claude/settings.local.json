@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter create:*)",
+      "Bash(powershell -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\Users\\\\Asus\\\\Documents\\\\habit\\\\lib\\\\models'',''C:\\\\Users\\\\Asus\\\\Documents\\\\habit\\\\lib\\\\services'',''C:\\\\Users\\\\Asus\\\\Documents\\\\habit\\\\lib\\\\providers'',''C:\\\\Users\\\\Asus\\\\Documents\\\\habit\\\\lib\\\\screens'',''C:\\\\Users\\\\Asus\\\\Documents\\\\habit\\\\lib\\\\widgets''\")",
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter devices:*)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}
