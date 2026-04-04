@@ -21,6 +21,14 @@ class HabitProvider extends ChangeNotifier {
   /// Active habits only
   List<Habit> get activeHabits => _habits.where((h) => h.isActive).toList();
 
+  bool _nameExists(String name, {String? excludeId}) {
+    final normalized = name.trim().toLowerCase();
+    return _habits.any(
+      (h) =>
+          h.id != excludeId && h.title.trim().toLowerCase() == normalized,
+    );
+  }
+
   void load() {
     _habits = _storage.loadHabits();
     _logs = _storage.loadLogs();
@@ -32,6 +40,10 @@ class HabitProvider extends ChangeNotifier {
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   Future<void> addHabit(Habit habit) async {
+    if (_nameExists(habit.title)) {
+      throw ArgumentError('A habit with this name already exists.');
+    }
+
     final h = habit.copyWith(id: habit.id.isEmpty ? _uuid.v4() : habit.id);
     _habits.add(h);
     notifyListeners();
@@ -49,6 +61,11 @@ class HabitProvider extends ChangeNotifier {
   Future<void> updateHabit(Habit updated) async {
     final idx = _habits.indexWhere((h) => h.id == updated.id);
     if (idx == -1) return;
+
+    if (_nameExists(updated.title, excludeId: updated.id)) {
+      throw ArgumentError('A habit with this name already exists.');
+    }
+
     _habits[idx] = updated;
     notifyListeners();
 
@@ -88,63 +105,37 @@ class HabitProvider extends ChangeNotifier {
 
   /// Toggle today's completion for a habit.
   Future<void> toggleToday(String habitId) async {
-    final today = HabitLog.normalizeDate(DateTime.now());
+    await toggleForDate(habitId, DateTime.now());
+  }
+
+  /// Toggle completion for a specific date.
+  Future<void> toggleForDate(String habitId, DateTime date) async {
+    final targetDay = HabitLog.normalizeDate(date);
 
     final existing = _logs.where(
-      (l) => l.habitId == habitId && l.date == today,
+      (l) => l.habitId == habitId && l.date == targetDay,
     ).toList();
 
     if (existing.isNotEmpty) {
-      // Un-complete: remove today's log
+      // Un-complete: remove the selected day's log(s)
       for (final log in existing) {
         _logs.removeWhere((l) => l.id == log.id);
         await _storage.deleteLog(log.id);
       }
       await _recalcStreak(habitId);
     } else {
-      // Mark complete
+      // Mark complete for the selected day
       final log = HabitLog(
         id: _uuid.v4(),
         habitId: habitId,
-        date: today,
+        date: targetDay,
         status: 'done',
       );
       _logs.add(log);
       await _storage.saveLog(log);
-      await _markComplete(habitId, today);
+      await _recalcStreak(habitId);
     }
     notifyListeners();
-  }
-
-  Future<void> _markComplete(String habitId, DateTime date) async {
-    final idx = _habits.indexWhere((h) => h.id == habitId);
-    if (idx == -1) return;
-    final habit = _habits[idx];
-    final normalized = HabitLog.normalizeDate(date);
-
-    int newStreak = habit.currentStreak;
-    final last = habit.lastCompletedDate;
-
-    if (last == null) {
-      newStreak = 1;
-    } else {
-      final diff = normalized.difference(last).inDays;
-      if (diff == 0) return; // already counted
-      if (diff == 1) {
-        newStreak = habit.currentStreak + 1;
-      } else {
-        newStreak = 1; // streak broken
-      }
-    }
-
-    final updated = habit.copyWith(
-      currentStreak: newStreak,
-      longestStreak:
-          newStreak > habit.longestStreak ? newStreak : habit.longestStreak,
-      lastCompletedDate: normalized,
-    );
-    _habits[idx] = updated;
-    await _storage.saveHabit(updated);
   }
 
   /// Recompute the streak for a habit from scratch based on logs.

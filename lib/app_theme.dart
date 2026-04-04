@@ -12,6 +12,8 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'SF Pro',
+      fontFamilyFallback: const ['Segoe UI', 'Roboto', 'sans-serif'],
       brightness: isDark ? Brightness.dark : Brightness.light,
       colorScheme: ColorScheme.fromSeed(
         seedColor: NeuColors.primary,

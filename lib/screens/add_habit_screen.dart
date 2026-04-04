@@ -109,17 +109,28 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     );
 
     final provider = context.read<HabitProvider>();
-    if (isEditing) {
-      await provider.updateHabit(habit);
-    } else {
-      await provider.addHabit(habit);
-    }
+    try {
+      if (isEditing) {
+        await provider.updateHabit(habit);
+      } else {
+        await provider.addHabit(habit);
+      }
 
-    if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save habit: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<HabitProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accentColor = Color(_colorValue);
 
@@ -210,9 +221,20 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
             _NeuTextField(
               controller: _titleCtrl,
               hint: 'e.g. Drink 8 glasses of water',
-              validator: (v) => v == null || v.trim().isEmpty
-                  ? 'Title is required'
-                  : null,
+              validator: (v) {
+                final title = v?.trim() ?? '';
+                if (title.isEmpty) return 'Title is required';
+
+                final duplicate = provider.habits.any(
+                  (h) =>
+                      h.id != widget.editHabit?.id &&
+                      h.title.trim().toLowerCase() == title.toLowerCase(),
+                );
+                if (duplicate) {
+                  return 'A habit with this name already exists';
+                }
+                return null;
+              },
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 18),

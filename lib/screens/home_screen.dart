@@ -12,9 +12,11 @@ class HomeScreen extends StatelessWidget {
 
   String _greeting() {
     final h = DateTime.now().hour;
+    if (h < 5) return 'Good night';
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 21) return 'Good evening';
+    return 'Good night';
   }
 
   @override

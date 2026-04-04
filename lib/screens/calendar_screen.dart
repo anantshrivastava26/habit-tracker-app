@@ -31,7 +31,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     List<HabitLog> getEventsForDay(DateTime day) =>
         eventMap[HabitLog.normalizeDate(day)] ?? [];
 
-    final selectedLogs = getEventsForDay(_selectedDay);
     final habits = provider.habits;
 
     return Scaffold(
@@ -116,9 +115,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           ),
 
-          // ── Selected day logs ─────────────────────────────────────────
+          // ── Selected day habits ───────────────────────────────────────
           Expanded(
-            child: selectedLogs.isEmpty
+            child: habits.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -138,9 +137,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          isSameDay(_selectedDay, DateTime.now())
-                              ? 'Nothing completed today yet'
-                              : 'No activity on ${DateFormat('MMM d').format(_selectedDay)}',
+                          'No habits created yet',
                           style: TextStyle(
                               color: NeuColors.textSecondary(isDark)),
                         ),
@@ -162,12 +159,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                       ),
-                      ...selectedLogs.map((log) {
-                        final habit = habits
-                            .where((h) => h.id == log.habitId)
-                            .firstOrNull;
-                        if (habit == null) return const SizedBox.shrink();
-                        return _LogItem(log: log, habit: habit);
+                      ...habits.map((habit) {
+                        final isDone = provider.isCompletedOnDate(
+                          habit.id,
+                          _selectedDay,
+                        );
+                        return _HabitDayItem(
+                          habit: habit,
+                          isDone: isDone,
+                          onToggle: () =>
+                              provider.toggleForDate(habit.id, _selectedDay),
+                        );
                       }),
                     ],
                   ),
@@ -178,16 +180,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 }
 
-class _LogItem extends StatelessWidget {
-  final HabitLog log;
+class _HabitDayItem extends StatelessWidget {
   final Habit habit;
+  final bool isDone;
+  final Future<void> Function() onToggle;
 
-  const _LogItem({required this.log, required this.habit});
+  const _HabitDayItem({
+    required this.habit,
+    required this.isDone,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     final color = Color(habit.colorValue);
-    final isDone = log.status == 'done';
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -231,19 +237,19 @@ class _LogItem extends StatelessWidget {
                 ],
               ),
             ),
-            NeuBox(
-              style: isDone ? NeuStyle.pressed : NeuStyle.raised,
+            NeuButton(
+              onTap: onToggle,
               borderRadius: 12,
               depth: 3,
               padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     isDone
                         ? Icons.check_circle_rounded
-                        : Icons.skip_next_rounded,
+                        : Icons.radio_button_unchecked_rounded,
                     size: 14,
                     color: isDone
                         ? NeuColors.success
@@ -251,7 +257,7 @@ class _LogItem extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    isDone ? 'Done' : 'Skipped',
+                    isDone ? 'Done' : 'Mark',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDone
