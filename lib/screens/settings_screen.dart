@@ -26,7 +26,7 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text('Switch to dark theme'),
             secondary: const Icon(Icons.dark_mode),
             value: settings.darkMode,
-            activeColor: const Color(0xFF6C63FF),
+            activeThumbColor: const Color(0xFF6C63FF),
             onChanged: settings.setDarkMode,
           ),
 
@@ -36,7 +36,7 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text('Receive habit reminders'),
             secondary: const Icon(Icons.notifications),
             value: settings.notificationsEnabled,
-            activeColor: const Color(0xFF6C63FF),
+            activeThumbColor: const Color(0xFF6C63FF),
             onChanged: (v) async {
               await settings.setNotificationsEnabled(v);
               if (!v) {
@@ -127,7 +127,8 @@ class SettingsScreen extends StatelessWidget {
                 await provider.deleteHabit(h.id);
               }
               await NotificationService().cancelAll();
-              if (context.mounted) Navigator.pop(context);
+              if (!context.mounted) return;
+              Navigator.pop(context);
             },
             child: const Text('Delete All'),
           ),

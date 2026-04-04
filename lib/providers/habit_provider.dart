@@ -34,31 +34,46 @@ class HabitProvider extends ChangeNotifier {
   Future<void> addHabit(Habit habit) async {
     final h = habit.copyWith(id: habit.id.isEmpty ? _uuid.v4() : habit.id);
     _habits.add(h);
-    await _storage.saveHabit(h);
-    if (h.reminderTime != null) {
-      await _notifications.scheduleHabitReminder(h);
-    }
     notifyListeners();
+
+    try {
+      await _storage.saveHabit(h);
+      if (h.reminderTime != null) {
+        await _notifications.scheduleHabitReminder(h);
+      }
+    } catch (_) {
+      // Keep the UI responsive even if storage or scheduling fails.
+    }
   }
 
   Future<void> updateHabit(Habit updated) async {
     final idx = _habits.indexWhere((h) => h.id == updated.id);
     if (idx == -1) return;
     _habits[idx] = updated;
-    await _storage.saveHabit(updated);
-    await _notifications.cancelHabitReminder(updated.id);
-    if (updated.reminderTime != null && updated.isActive) {
-      await _notifications.scheduleHabitReminder(updated);
-    }
     notifyListeners();
+
+    try {
+      await _storage.saveHabit(updated);
+      await _notifications.cancelHabitReminder(updated.id);
+      if (updated.reminderTime != null && updated.isActive) {
+        await _notifications.scheduleHabitReminder(updated);
+      }
+    } catch (_) {
+      // Avoid blocking UI updates if notification scheduling/storage has issues.
+    }
   }
 
   Future<void> deleteHabit(String id) async {
     _habits.removeWhere((h) => h.id == id);
     _logs.removeWhere((l) => l.habitId == id);
-    await _storage.deleteHabit(id);
-    await _notifications.cancelHabitReminder(id);
     notifyListeners();
+
+    try {
+      await _storage.deleteHabit(id);
+      await _notifications.cancelHabitReminder(id);
+    } catch (_) {
+      // Continue even if cleanup fails.
+    }
   }
 
   // ── Logging ─────────────────────────────────────────────────────────────────

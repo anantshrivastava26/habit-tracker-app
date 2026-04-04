@@ -42,7 +42,7 @@ class AnalyticsScreen extends StatelessWidget {
                       Icons.bar_chart_rounded,
                       size: 48,
                       color: NeuColors.textSecondary(isDark)
-                          .withOpacity(0.4),
+                          .withValues(alpha: 0.4),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -298,7 +298,7 @@ class _WeekBarChart extends StatelessWidget {
                   toY: counts[i].toDouble(),
                   color: isToday
                       ? NeuColors.primary
-                      : NeuColors.primary.withOpacity(0.35),
+                      : NeuColors.primary.withValues(alpha: 0.35),
                   width: 20,
                   borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(6)),
@@ -374,8 +374,8 @@ class _Heatmap extends StatelessWidget {
                   color: isFuture
                       ? null
                       : count > 0
-                          ? NeuColors.primary
-                              .withOpacity(0.15 + 0.7 * intensity)
+                          ? NeuColors.primary.withValues(
+                              alpha: 0.15 + 0.7 * intensity)
                           : null,
                   child: count > 0
                       ? Center(
@@ -421,7 +421,7 @@ class _Heatmap extends StatelessWidget {
                   height: 14,
                   margin: const EdgeInsets.only(left: 3),
                   decoration: BoxDecoration(
-                    color: NeuColors.primary.withOpacity(op),
+                    color: NeuColors.primary.withValues(alpha: op),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 )),

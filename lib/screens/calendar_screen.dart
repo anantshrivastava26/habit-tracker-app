@@ -63,7 +63,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPageChanged: (focusedDay) => _focusedDay = focusedDay,
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
-                color: NeuColors.primary.withOpacity(0.3),
+                color: NeuColors.primary.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
               selectedDecoration: const BoxDecoration(
@@ -110,7 +110,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Divider(
-              color: NeuColors.textSecondary(isDark).withOpacity(0.15),
+              color: NeuColors.textSecondary(isDark)
+                  .withValues(alpha: 0.15),
               height: 1,
             ),
           ),
@@ -132,7 +133,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             Icons.event_available_outlined,
                             size: 36,
                             color: NeuColors.textSecondary(isDark)
-                                .withOpacity(0.4),
+                                .withValues(alpha: 0.4),
                           ),
                         ),
                         const SizedBox(height: 16),

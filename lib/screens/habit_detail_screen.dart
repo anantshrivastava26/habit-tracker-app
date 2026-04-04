@@ -248,7 +248,7 @@ class HabitDetailScreen extends StatelessWidget {
                       if (!isLast)
                         Divider(
                           color: NeuColors.textSecondary(isDark)
-                              .withOpacity(0.1),
+                              .withValues(alpha: 0.1),
                           height: 1,
                         ),
                     ],
@@ -276,8 +276,9 @@ class HabitDetailScreen extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              provider.deleteHabit(habitId);
+            onPressed: () async {
+              await provider.deleteHabit(habitId);
+              if (!context.mounted) return;
               Navigator.pop(context);
               Navigator.pop(context);
             },
@@ -295,7 +296,9 @@ class _RowDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Divider(
-      color: NeuColors.textSecondary(isDark).withOpacity(0.1), height: 1);
+      color: NeuColors.textSecondary(isDark)
+          .withValues(alpha: 0.1),
+      height: 1);
 }
 
 class _StatCard extends StatelessWidget {

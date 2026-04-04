@@ -543,7 +543,8 @@ class _NeuTextField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
-              color: NeuColors.textSecondary(isDark).withOpacity(0.6)),
+              color: NeuColors.textSecondary(isDark)
+                  .withValues(alpha: 0.6)),
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
