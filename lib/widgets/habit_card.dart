@@ -42,7 +42,9 @@ class HabitCard extends StatelessWidget {
                 height: 50,
                 child: Icon(
                   IconData(habit.icon, fontFamily: 'MaterialIcons'),
-                  color: isCompleted ? color : color.withOpacity(0.75),
+                  color: isCompleted
+                      ? color
+                      : color.withValues(alpha: 0.75),
                   size: 24,
                 ),
               ),
@@ -160,7 +162,7 @@ class _CategoryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -201,7 +203,8 @@ class _CompleteButton extends StatelessWidget {
           Icons.check_rounded,
           color: isCompleted
               ? color
-              : NeuColors.textSecondary(isDark).withOpacity(0.3),
+              : NeuColors.textSecondary(isDark)
+                  .withValues(alpha: 0.3),
           size: 22,
         ),
       ),

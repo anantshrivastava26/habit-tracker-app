@@ -74,15 +74,15 @@ class NeuBox extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            dk.withOpacity(isDark ? 0.6 : 0.4),
+            dk.withValues(alpha: isDark ? 0.6 : 0.4),
             bg,
-            lt.withOpacity(isDark ? 0.12 : 0.9),
+            lt.withValues(alpha: isDark ? 0.12 : 0.9),
           ],
           stops: const [0.0, 0.4, 1.0],
         ),
         boxShadow: [
           BoxShadow(
-              color: dk.withOpacity(0.8),
+              color: dk.withValues(alpha: 0.8),
               offset: Offset(depth * 0.5, depth * 0.5),
               blurRadius: depth,
               spreadRadius: -(depth * 0.3)),

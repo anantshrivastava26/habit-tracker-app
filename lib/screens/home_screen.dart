@@ -214,7 +214,7 @@ class _EmptyState extends StatelessWidget {
             height: 100,
             child: Icon(Icons.spa_outlined,
                 size: 48,
-                color: NeuColors.primary.withOpacity(0.5)),
+                color: NeuColors.primary.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 24),
           Text(
