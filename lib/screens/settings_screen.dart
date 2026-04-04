@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/habit_provider.dart';
@@ -67,7 +68,17 @@ class SettingsScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('App Version'),
-            trailing: const Text('1.0.0', style: TextStyle(color: Colors.grey)),
+            trailing: FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final version = snapshot.data?.version ?? '1.0.0';
+                final build = snapshot.data?.buildNumber ?? '1';
+                return Text(
+                  '$version+$build',
+                  style: const TextStyle(color: Colors.grey),
+                );
+              },
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.code),
@@ -81,7 +92,7 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  '🔥 Habit Tracker',
+                  'LifeLoop🤍',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

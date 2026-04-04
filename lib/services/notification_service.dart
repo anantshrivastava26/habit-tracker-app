@@ -8,6 +8,14 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._();
 
+  static const AndroidNotificationChannel _habitRemindersChannel =
+      AndroidNotificationChannel(
+    'habit_reminders',
+    'Habit Reminders',
+    description: 'Daily reminders for your habits',
+    importance: Importance.high,
+  );
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
@@ -30,6 +38,11 @@ class NotificationService {
         iOS: ios,
       ),
     );
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_habitRemindersChannel);
 
     // Safe across Android versions: this only prompts on Android 13+.
     try {
@@ -67,10 +80,10 @@ class NotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    const androidDetails = AndroidNotificationDetails(
-      'habit_reminders',
-      'Habit Reminders',
-      channelDescription: 'Daily reminders for your habits',
+    final androidDetails = AndroidNotificationDetails(
+      _habitRemindersChannel.id,
+      _habitRemindersChannel.name,
+      channelDescription: _habitRemindersChannel.description,
       importance: Importance.high,
       priority: Priority.high,
     );
@@ -83,7 +96,7 @@ class NotificationService {
             ? habit.description
             : 'Keep the streak alive! 🔥',
         scheduledDate,
-        const NotificationDetails(android: androidDetails),
+        NotificationDetails(android: androidDetails),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -98,7 +111,7 @@ class NotificationService {
             ? habit.description
             : 'Keep the streak alive! 🔥',
         scheduledDate,
-        const NotificationDetails(android: androidDetails),
+        NotificationDetails(android: androidDetails),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

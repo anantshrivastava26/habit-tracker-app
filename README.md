@@ -1,4 +1,4 @@
-# habit-tracker-app
+# LifeLoop
 
 A Flutter habit tracker app.
 

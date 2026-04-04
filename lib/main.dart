@@ -47,7 +47,7 @@ class HabitTrackerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
     return MaterialApp(
-      title: 'Habit Tracker',
+      title: 'LifeLoop',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
