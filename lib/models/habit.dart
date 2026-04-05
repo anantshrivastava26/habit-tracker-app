@@ -7,6 +7,7 @@ class Habit {
   final String description;
   final String category;
   final String frequency; // 'daily' | 'weekly'
+  final String loggingMode; // 'check' | 'count' | 'time'
   final int target;
   final DateTime startDate;
   final String? reminderTime; // "HH:mm"
@@ -23,6 +24,7 @@ class Habit {
     this.description = '',
     this.category = 'General',
     this.frequency = 'daily',
+    this.loggingMode = 'check',
     this.target = 1,
     required this.startDate,
     this.reminderTime,
@@ -40,6 +42,7 @@ class Habit {
     String? description,
     String? category,
     String? frequency,
+    String? loggingMode,
     int? target,
     DateTime? startDate,
     Object? reminderTime = _sentinel,
@@ -56,6 +59,7 @@ class Habit {
       description: description ?? this.description,
       category: category ?? this.category,
       frequency: frequency ?? this.frequency,
+      loggingMode: loggingMode ?? this.loggingMode,
       target: target ?? this.target,
       startDate: startDate ?? this.startDate,
       reminderTime: reminderTime == _sentinel
@@ -78,6 +82,7 @@ class Habit {
         'description': description,
         'category': category,
         'frequency': frequency,
+        'loggingMode': loggingMode,
         'target': target,
         'startDate': startDate.toIso8601String(),
         'reminderTime': reminderTime,
@@ -95,6 +100,7 @@ class Habit {
         description: json['description'] as String? ?? '',
         category: json['category'] as String? ?? 'General',
         frequency: json['frequency'] as String? ?? 'daily',
+        loggingMode: json['loggingMode'] as String? ?? 'check',
         target: json['target'] as int? ?? 1,
         startDate: DateTime.parse(json['startDate'] as String),
         reminderTime: json['reminderTime'] as String?,

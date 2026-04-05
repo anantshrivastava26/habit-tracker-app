@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 import '../models/habit.dart';
@@ -8,12 +9,17 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._();
 
+  static const _androidSoundName = 'habit_chime';
+  static const _iosSoundName = 'habit_chime.aiff';
+
   static const AndroidNotificationChannel _habitRemindersChannel =
       AndroidNotificationChannel(
-    'habit_reminders',
+    'habit_reminders_custom_sound',
     'Habit Reminders',
     description: 'Daily reminders for your habits',
     importance: Importance.high,
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound(_androidSoundName),
   );
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -24,6 +30,12 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
     tz.initializeTimeZones();
+    try {
+      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+    } catch (_) {
+      // Fall back to the package default location if the platform lookup fails.
+    }
 
     const android = AndroidInitializationSettings('@mipmap/launcher_icon');
     const ios = DarwinInitializationSettings(
@@ -52,6 +64,15 @@ class NotificationService {
         ?.requestNotificationsPermission();
     } catch (_) {
       // Avoid startup crashes if a device/ROM throws here.
+    }
+
+    try {
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestExactAlarmsPermission();
+    } catch (_) {
+      // Some Android builds do not expose the exact-alarm prompt.
     }
 
     _initialized = true;
@@ -86,17 +107,21 @@ class NotificationService {
       channelDescription: _habitRemindersChannel.description,
       importance: Importance.high,
       priority: Priority.high,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(_androidSoundName),
     );
+
+    const iosDetails = DarwinNotificationDetails(sound: _iosSoundName);
 
     try {
       await _plugin.zonedSchedule(
         _notifId(habit.id),
-        '${habit.icon} Time for: ${habit.title}',
+        'Time for: ${habit.title}',
         habit.description.isNotEmpty
             ? habit.description
             : 'Keep the streak alive! 🔥',
         scheduledDate,
-        NotificationDetails(android: androidDetails),
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -106,12 +131,12 @@ class NotificationService {
       // Fallback for devices where exact scheduling isn't available.
       await _plugin.zonedSchedule(
         _notifId(habit.id),
-        '${habit.icon} Time for: ${habit.title}',
+        'Time for: ${habit.title}',
         habit.description.isNotEmpty
             ? habit.description
             : 'Keep the streak alive! 🔥',
         scheduledDate,
-        NotificationDetails(android: androidDetails),
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

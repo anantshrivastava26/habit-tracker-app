@@ -27,8 +27,14 @@ class HabitDetailScreen extends StatelessWidget {
     final color = Color(habit.colorValue);
     final logs = provider.logsForHabit(habitId);
     final doneLogs = logs.where((l) => l.status == 'done').toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
     final recentLogs = doneLogs.take(10).toList();
+    final todayCount = provider.countForDate(habitId, DateTime.now());
+    final periodCount = habit.frequency == 'weekly'
+        ? provider.completionsThisWeek(habitId)
+        : todayCount;
+    final todayDone = provider.isCompletedOnDate(habitId, DateTime.now());
+    final periodLabel = habit.frequency == 'weekly' ? 'This week' : 'Today';
 
     return Scaffold(
       appBar: AppBar(
@@ -114,6 +120,117 @@ class HabitDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
+          // ── Quick Log Controls ────────────────────────────────────────
+          NeuBox(
+            style: NeuStyle.raised,
+            borderRadius: 18,
+            depth: 5,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  periodLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: NeuColors.textPrimary(isDark),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (habit.loggingMode == 'check')
+                  SizedBox(
+                    width: double.infinity,
+                    child: NeuButton(
+                      onTap: () => provider.toggleToday(habit.id),
+                      borderRadius: 14,
+                      depth: 4,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Text(
+                        todayDone ? 'Mark incomplete' : 'Mark complete',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  )
+                else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: NeuBox(
+                          style: NeuStyle.pressed,
+                          borderRadius: 14,
+                          depth: 4,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.insights_rounded,
+                                color: color,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                  '$periodCount / ${habit.target} ${habit.frequency == 'weekly' ? 'this week' : 'today'}',
+                                style: TextStyle(
+                                  color: NeuColors.textPrimary(isDark),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      NeuButton(
+                        onTap: () async {
+                          if (habit.loggingMode == 'time') {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (picked == null || !context.mounted) return;
+                            await provider.addTimedOccurrence(habit.id, picked);
+                          } else {
+                            await provider.addOccurrence(habit.id);
+                          }
+                        },
+                        borderRadius: 14,
+                        depth: 4,
+                        padding: const EdgeInsets.all(14),
+                        child: Icon(
+                          habit.loggingMode == 'time'
+                              ? Icons.schedule_rounded
+                              : Icons.add_rounded,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      NeuButton(
+                        onTap: todayCount > 0
+                            ? () => provider.removeLatestOccurrence(habit.id)
+                            : null,
+                        borderRadius: 14,
+                        depth: 4,
+                        padding: const EdgeInsets.all(14),
+                        child: Icon(
+                          Icons.remove_rounded,
+                          color: todayCount > 0
+                              ? Colors.red.shade400
+                              : NeuColors.textSecondary(isDark),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
           // ── Stats row ──────────────────────────────────────────────────
           Row(
             children: [
@@ -164,6 +281,17 @@ class HabitDetailScreen extends StatelessWidget {
                   value: habit.frequency == 'weekly'
                       ? '${habit.target}x / week'
                       : 'Daily',
+                  color: color,
+                ),
+                _RowDivider(isDark: isDark),
+                _DetailRow(
+                  icon: Icons.fact_check_outlined,
+                  label: 'Logging',
+                  value: habit.loggingMode == 'check'
+                      ? 'Check-in'
+                      : habit.loggingMode == 'count'
+                          ? 'Count'
+                          : 'Time-based',
                   color: color,
                 ),
                 _RowDivider(isDark: isDark),
@@ -219,28 +347,34 @@ class HabitDetailScreen extends StatelessWidget {
                 children: List.generate(recentLogs.length, (i) {
                   final log = recentLogs[i];
                   final isLast = i == recentLogs.length - 1;
+                  final hasTime =
+                      log.loggedAt.hour != 0 || log.loggedAt.minute != 0;
                   return Column(
                     children: [
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 9),
+                        padding: const EdgeInsets.symmetric(vertical: 9),
                         child: Row(
                           children: [
                             Container(
                               width: 10,
                               height: 10,
                               decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle),
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              DateFormat('EEEE, MMM d')
-                                  .format(log.date),
-                              style: TextStyle(
+                            Expanded(
+                              child: Text(
+                                hasTime
+                                    ? '${DateFormat('EEEE, MMM d').format(log.loggedAt)} • ${DateFormat('h:mm a').format(log.loggedAt)}'
+                                    : DateFormat('EEEE, MMM d')
+                                        .format(log.loggedAt),
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color:
-                                      NeuColors.textPrimary(isDark)),
+                                  color: NeuColors.textPrimary(isDark),
+                                ),
+                              ),
                             ),
                           ],
                         ),

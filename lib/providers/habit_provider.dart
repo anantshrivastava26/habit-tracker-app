@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
@@ -27,6 +27,35 @@ class HabitProvider extends ChangeNotifier {
       (h) =>
           h.id != excludeId && h.title.trim().toLowerCase() == normalized,
     );
+  }
+
+  Habit? _habitById(String habitId) {
+    try {
+      return _habits.firstWhere((habit) => habit.id == habitId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _countLogsOnDate(String habitId, DateTime date) {
+    final targetDay = HabitLog.normalizeDate(date);
+    return _logs
+        .where((log) =>
+            log.habitId == habitId &&
+            log.status == 'done' &&
+            HabitLog.normalizeDate(log.loggedAt) == targetDay)
+        .length;
+  }
+
+  List<HabitLog> _logsForDate(String habitId, DateTime date) {
+    final targetDay = HabitLog.normalizeDate(date);
+    return _logs
+        .where((log) =>
+            log.habitId == habitId &&
+            log.status == 'done' &&
+            HabitLog.normalizeDate(log.loggedAt) == targetDay)
+        .toList()
+      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
   }
 
   void load() {
@@ -97,10 +126,9 @@ class HabitProvider extends ChangeNotifier {
 
   /// Returns whether the habit was completed on the given date.
   bool isCompletedOnDate(String habitId, DateTime date) {
-    final normalized = HabitLog.normalizeDate(date);
-    return _logs.any(
-      (l) => l.habitId == habitId && l.date == normalized && l.status == 'done',
-    );
+    final habit = _habitById(habitId);
+    final target = habit?.target ?? 1;
+    return _countLogsOnDate(habitId, date) >= target;
   }
 
   /// Toggle today's completion for a habit.
@@ -110,32 +138,71 @@ class HabitProvider extends ChangeNotifier {
 
   /// Toggle completion for a specific date.
   Future<void> toggleForDate(String habitId, DateTime date) async {
-    final targetDay = HabitLog.normalizeDate(date);
+    final habit = _habitById(habitId);
+    if (habit == null) return;
 
-    final existing = _logs.where(
-      (l) => l.habitId == habitId && l.date == targetDay,
-    ).toList();
+    if (habit.loggingMode == 'check') {
+      final targetDay = HabitLog.normalizeDate(date);
+      final existing = _logsForDate(habitId, targetDay);
 
-    if (existing.isNotEmpty) {
-      // Un-complete: remove the selected day's log(s)
-      for (final log in existing) {
-        _logs.removeWhere((l) => l.id == log.id);
-        await _storage.deleteLog(log.id);
+      if (existing.isNotEmpty) {
+        for (final log in existing) {
+          _logs.removeWhere((entry) => entry.id == log.id);
+          await _storage.deleteLog(log.id);
+        }
+      } else {
+        final log = HabitLog(
+          id: _uuid.v4(),
+          habitId: habitId,
+          date: targetDay,
+          loggedAt: date,
+          status: 'done',
+        );
+        _logs.add(log);
+        await _storage.saveLog(log);
       }
       await _recalcStreak(habitId);
-    } else {
-      // Mark complete for the selected day
-      final log = HabitLog(
-        id: _uuid.v4(),
-        habitId: habitId,
-        date: targetDay,
-        status: 'done',
-      );
-      _logs.add(log);
-      await _storage.saveLog(log);
-      await _recalcStreak(habitId);
+      notifyListeners();
+      return;
     }
+
+    await addOccurrence(habitId, at: date);
+  }
+
+  Future<void> addOccurrence(String habitId, {DateTime? at}) async {
+    final habit = _habitById(habitId);
+    if (habit == null) return;
+
+    final loggedAt = at ?? DateTime.now();
+    final log = HabitLog(
+      id: _uuid.v4(),
+      habitId: habitId,
+      date: HabitLog.normalizeDate(loggedAt),
+      loggedAt: loggedAt,
+      status: 'done',
+    );
+    _logs.add(log);
+    await _storage.saveLog(log);
+    await _recalcStreak(habitId);
     notifyListeners();
+  }
+
+  Future<void> removeLatestOccurrence(String habitId, {DateTime? onDate}) async {
+    final targetDate = onDate ?? DateTime.now();
+    final existing = _logsForDate(habitId, targetDate);
+    if (existing.isEmpty) return;
+
+    final log = existing.first;
+    _logs.removeWhere((entry) => entry.id == log.id);
+    await _storage.deleteLog(log.id);
+    await _recalcStreak(habitId);
+    notifyListeners();
+  }
+
+  Future<void> addTimedOccurrence(String habitId, TimeOfDay time) async {
+    final now = DateTime.now();
+    final loggedAt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    await addOccurrence(habitId, at: loggedAt);
   }
 
   /// Recompute the streak for a habit from scratch based on logs.
@@ -144,8 +211,8 @@ class HabitProvider extends ChangeNotifier {
     if (idx == -1) return;
 
     final doneDates = _logs
-        .where((l) => l.habitId == habitId && l.status == 'done')
-        .map((l) => l.date)
+        .where((log) => log.habitId == habitId && log.status == 'done')
+        .map((log) => HabitLog.normalizeDate(log.loggedAt))
         .toSet()
         .toList()
       ..sort();
@@ -202,9 +269,15 @@ class HabitProvider extends ChangeNotifier {
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
+  int countForDate(String habitId, DateTime date) {
+    return _countLogsOnDate(habitId, date);
+  }
+
   List<HabitLog> logsForDate(DateTime date) {
     final normalized = HabitLog.normalizeDate(date);
-    return _logs.where((l) => l.date == normalized).toList();
+    return _logs
+        .where((log) => HabitLog.normalizeDate(log.loggedAt) == normalized)
+        .toList();
   }
 
   List<HabitLog> logsForHabit(String habitId) {
@@ -222,8 +295,8 @@ class HabitProvider extends ChangeNotifier {
         .where((l) =>
             l.habitId == habitId &&
             l.status == 'done' &&
-            !l.date.isBefore(startOfWeek) &&
-            !l.date.isAfter(endOfWeek))
+        !HabitLog.normalizeDate(l.loggedAt).isBefore(startOfWeek) &&
+        !HabitLog.normalizeDate(l.loggedAt).isAfter(endOfWeek))
         .length;
   }
 

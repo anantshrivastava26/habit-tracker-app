@@ -20,6 +20,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
 
   String _category = 'General';
   String _frequency = 'daily';
+  String _loggingMode = 'check';
   int _target = 1;
   int _iconIndex = 0; // index into kIcons
   int _colorValue = 0xFF6C63FF;
@@ -44,6 +45,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       _descCtrl.text = h.description;
       _category = h.category;
       _frequency = h.frequency;
+      _loggingMode = h.loggingMode;
       _target = h.target;
       _iconIndex =
           kIcons.indexWhere((ic) => ic.codePoint == h.icon);
@@ -97,7 +99,10 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       description: _descCtrl.text.trim(),
       category: _category,
       frequency: _frequency,
-      target: _frequency == 'weekly' ? _target : 1,
+        loggingMode: _loggingMode,
+        target: (_frequency == 'weekly' || _loggingMode != 'check')
+          ? _target
+          : 1,
       startDate: _startDate,
       reminderTime: _reminderTime,
       colorValue: _colorValue,
@@ -262,6 +267,35 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
             ),
             const SizedBox(height: 18),
 
+            // ── Logging Mode ──────────────────────────────────────────────
+            _SectionLabel('Logging Mode', isDark),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _FreqButton(
+                  label: 'Check-in',
+                  icon: Icons.check_circle_outline_rounded,
+                  isSelected: _loggingMode == 'check',
+                  onTap: () => setState(() => _loggingMode = 'check'),
+                ),
+                const SizedBox(width: 12),
+                _FreqButton(
+                  label: 'Count',
+                  icon: Icons.exposure_plus_1_rounded,
+                  isSelected: _loggingMode == 'count',
+                  onTap: () => setState(() => _loggingMode = 'count'),
+                ),
+                const SizedBox(width: 12),
+                _FreqButton(
+                  label: 'Time',
+                  icon: Icons.schedule_rounded,
+                  isSelected: _loggingMode == 'time',
+                  onTap: () => setState(() => _loggingMode = 'time'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
             // ── Frequency ─────────────────────────────────────────────────
             _SectionLabel('Frequency', isDark),
             const SizedBox(height: 10),
@@ -282,9 +316,12 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                 ),
               ],
             ),
-            if (_frequency == 'weekly') ...[
+            if (_frequency == 'weekly' || _loggingMode != 'check') ...[
               const SizedBox(height: 18),
-              _SectionLabel('Times per week', isDark),
+              _SectionLabel(
+                _frequency == 'weekly' ? 'Times per week' : 'Times per day',
+                isDark,
+              ),
               const SizedBox(height: 10),
               NeuBox(
                 style: NeuStyle.raised,
@@ -296,8 +333,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     NeuButton(
-                      onTap:
-                          _target > 1 ? () => setState(() => _target--) : null,
+                      onTap: _target > 1 ? () => setState(() => _target--) : null,
                       borderRadius: 10,
                       padding: const EdgeInsets.all(10),
                       depth: 4,
@@ -319,13 +355,12 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                       ),
                     ),
                     NeuButton(
-                      onTap:
-                          _target < 7 ? () => setState(() => _target++) : null,
+                      onTap: _target < 20 ? () => setState(() => _target++) : null,
                       borderRadius: 10,
                       padding: const EdgeInsets.all(10),
                       depth: 4,
                       child: Icon(Icons.add_rounded,
-                          color: _target < 7
+                          color: _target < 20
                               ? NeuColors.primary
                               : NeuColors.textSecondary(isDark)),
                     ),

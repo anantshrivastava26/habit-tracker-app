@@ -25,7 +25,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     Map<DateTime, List<HabitLog>> eventMap = {};
     for (final log in provider.logs) {
-      eventMap.putIfAbsent(log.date, () => []).add(log);
+      eventMap.putIfAbsent(HabitLog.normalizeDate(log.loggedAt), () => [])
+          .add(log);
     }
 
     List<HabitLog> getEventsForDay(DateTime day) =>

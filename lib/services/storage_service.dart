@@ -74,6 +74,8 @@ class StorageService {
   /// Returns logs for a specific normalized date.
   List<HabitLog> logsForDate(DateTime date) {
     final normalized = HabitLog.normalizeDate(date);
-    return loadLogs().where((l) => l.date == normalized).toList();
+    return loadLogs()
+        .where((log) => HabitLog.normalizeDate(log.loggedAt) == normalized)
+        .toList();
   }
 }
