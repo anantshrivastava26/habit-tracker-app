@@ -8,6 +8,8 @@ A Flutter habit tracker app.
 2. Run `flutter pub get`.
 3. Run `flutter run`.
 
+## Or use Android Studio to add features!!
+
 ## Resources
 
 - [Flutter documentation](https://docs.flutter.dev/)
