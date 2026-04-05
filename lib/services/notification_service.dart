@@ -9,17 +9,15 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._();
 
-  static const _androidSoundName = 'habit_chime';
   static const _iosSoundName = 'habit_chime.aiff';
 
   static const AndroidNotificationChannel _habitRemindersChannel =
       AndroidNotificationChannel(
-    'habit_reminders_custom_sound',
+    'habit_reminders_v2',
     'Habit Reminders',
     description: 'Daily reminders for your habits',
     importance: Importance.high,
     playSound: true,
-    sound: RawResourceAndroidNotificationSound(_androidSoundName),
   );
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -108,7 +106,6 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
-      sound: RawResourceAndroidNotificationSound(_androidSoundName),
     );
 
     const iosDetails = DarwinNotificationDetails(sound: _iosSoundName);

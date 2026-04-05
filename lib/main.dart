@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/storage_service.dart';
 import 'services/notification_service.dart';
+import 'services/widget_sync_service.dart';
 import 'providers/habit_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
@@ -19,6 +20,7 @@ void main() async {
 
   final notifications = NotificationService();
   await notifications.init();
+  final widgetSync = WidgetSyncService();
 
   final settingsProvider = SettingsProvider();
   await settingsProvider.load();
@@ -29,7 +31,7 @@ void main() async {
         ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProvider(
           create: (_) {
-            final provider = HabitProvider(storage, notifications);
+            final provider = HabitProvider(storage, notifications, widgetSync);
             provider.load();
             return provider;
           },

@@ -4,16 +4,18 @@ import '../models/habit.dart';
 import '../models/habit_log.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
+import '../services/widget_sync_service.dart';
 
 class HabitProvider extends ChangeNotifier {
   final StorageService _storage;
   final NotificationService _notifications;
+  final WidgetSyncService _widgetSync;
   static const _uuid = Uuid();
 
   List<Habit> _habits = [];
   List<HabitLog> _logs = [];
 
-  HabitProvider(this._storage, this._notifications);
+  HabitProvider(this._storage, this._notifications, this._widgetSync);
 
   List<Habit> get habits => List.unmodifiable(_habits);
   List<HabitLog> get logs => List.unmodifiable(_logs);
@@ -63,7 +65,16 @@ class HabitProvider extends ChangeNotifier {
     _logs = _storage.loadLogs();
     // On load, check if any streaks need resetting due to missed days
     _checkAndResetStreaks();
+    _syncWidget();
     notifyListeners();
+  }
+
+  Future<void> _syncWidget() async {
+    try {
+      await _widgetSync.syncFromState(habits: _habits, logs: _logs);
+    } catch (_) {
+      // Keep widget sync failures isolated from app UX.
+    }
   }
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
@@ -82,6 +93,7 @@ class HabitProvider extends ChangeNotifier {
       if (h.reminderTime != null) {
         await _notifications.scheduleHabitReminder(h);
       }
+      await _syncWidget();
     } catch (_) {
       // Keep the UI responsive even if storage or scheduling fails.
     }
@@ -104,6 +116,7 @@ class HabitProvider extends ChangeNotifier {
       if (updated.reminderTime != null && updated.isActive) {
         await _notifications.scheduleHabitReminder(updated);
       }
+      await _syncWidget();
     } catch (_) {
       // Avoid blocking UI updates if notification scheduling/storage has issues.
     }
@@ -117,6 +130,7 @@ class HabitProvider extends ChangeNotifier {
     try {
       await _storage.deleteHabit(id);
       await _notifications.cancelHabitReminder(id);
+      await _syncWidget();
     } catch (_) {
       // Continue even if cleanup fails.
     }
@@ -162,6 +176,7 @@ class HabitProvider extends ChangeNotifier {
         await _storage.saveLog(log);
       }
       await _recalcStreak(habitId);
+      await _syncWidget();
       notifyListeners();
       return;
     }
@@ -184,6 +199,7 @@ class HabitProvider extends ChangeNotifier {
     _logs.add(log);
     await _storage.saveLog(log);
     await _recalcStreak(habitId);
+    await _syncWidget();
     notifyListeners();
   }
 
@@ -196,6 +212,7 @@ class HabitProvider extends ChangeNotifier {
     _logs.removeWhere((entry) => entry.id == log.id);
     await _storage.deleteLog(log.id);
     await _recalcStreak(habitId);
+    await _syncWidget();
     notifyListeners();
   }
 
