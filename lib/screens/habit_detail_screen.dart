@@ -25,6 +25,8 @@ class HabitDetailScreen extends StatelessWidget {
     }
 
     final color = Color(habit.colorValue);
+    final todayCount = provider.countForDate(habitId, DateTime.now());
+    final totalCount = provider.totalCountForHabit(habit.id);
     final logs = provider.logsForHabit(habitId);
     final doneLogs = logs.where((l) => l.status == 'done').toList()
       ..sort((a, b) => b.date.compareTo(a.date));
@@ -135,7 +137,7 @@ class HabitDetailScreen extends StatelessWidget {
               const SizedBox(width: 12),
               _StatCard(
                 label: 'Total\nDone',
-                value: '${doneLogs.length}',
+                value: '$totalCount',
                 unit: 'times',
                 icon: Icons.check_circle_outline_rounded,
                 color: NeuColors.success,
@@ -147,6 +149,53 @@ class HabitDetailScreen extends StatelessWidget {
           // ── Streak badge ───────────────────────────────────────────────
           if (habit.currentStreak > 0) ...[
             Center(child: StreakBadge(streak: habit.currentStreak)),
+            const SizedBox(height: 20),
+          ],
+          if (habit.frequency == 'daily' && habit.target > 1) ...[
+            NeuBox(
+              style: NeuStyle.raised,
+              borderRadius: 18,
+              depth: 5,
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Today',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: NeuColors.textSecondary(isDark)),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '$todayCount/${habit.target}',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: NeuColors.textPrimary(isDark)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  NeuButton(
+                    onTap: () => _showCountDialog(context, habit, todayCount),
+                    borderRadius: 14,
+                    depth: 5,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    child: Text(
+                      'Update',
+                      style: TextStyle(
+                          color: NeuColors.primary,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
           ],
 
@@ -259,6 +308,51 @@ class HabitDetailScreen extends StatelessWidget {
           const SizedBox(height: 30),
         ],
       ),
+    );
+  }
+
+  void _showCountDialog(BuildContext context, Habit habit, int currentCount) {
+    final controller = TextEditingController(text: '$currentCount');
+    showDialog(
+      context: context,
+      builder: (_) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('Log today'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter how many times you did this today.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: '0',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final input = int.tryParse(controller.text.trim()) ?? 0;
+                context
+                    .read<HabitProvider>()
+                    .setCountForDate(habit.id, DateTime.now(), input);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 

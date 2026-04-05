@@ -5,6 +5,7 @@ class HabitLog {
   final String habitId;
   final DateTime date; // normalized to midnight local time
   final String status; // 'done' | 'skipped'
+  final int count;
   final String notes;
 
   const HabitLog({
@@ -12,6 +13,7 @@ class HabitLog {
     required this.habitId,
     required this.date,
     this.status = 'done',
+    this.count = 1,
     this.notes = '',
   });
 
@@ -23,6 +25,7 @@ class HabitLog {
         'habitId': habitId,
         'date': date.toIso8601String(),
         'status': status,
+        'count': count,
         'notes': notes,
       };
 
@@ -31,6 +34,8 @@ class HabitLog {
         habitId: json['habitId'] as String,
         date: DateTime.parse(json['date'] as String),
         status: json['status'] as String? ?? 'done',
+        count: json['count'] as int? ??
+            (json['status'] == 'done' ? 1 : 0),
         notes: json['notes'] as String? ?? '',
       );
 

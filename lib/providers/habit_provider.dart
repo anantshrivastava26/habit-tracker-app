@@ -95,46 +95,156 @@ class HabitProvider extends ChangeNotifier {
 
   // ── Logging ─────────────────────────────────────────────────────────────────
 
+  HabitLog? logForDate(String habitId, DateTime date) {
+    final normalized = HabitLog.normalizeDate(date);
+    try {
+      return _logs.firstWhere(
+        (l) => l.habitId == habitId && l.date == normalized,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int countForDate(String habitId, DateTime date) {
+    final log = logForDate(habitId, date);
+    return log?.count ?? 0;
+  }
+
+  bool _isLogCompleted(Habit habit, HabitLog log) {
+    if (habit.frequency == 'daily' && habit.target > 1) {
+      return log.count >= habit.target;
+    }
+    return log.status == 'done' || log.count > 0;
+  }
+
   /// Returns whether the habit was completed on the given date.
   bool isCompletedOnDate(String habitId, DateTime date) {
     final normalized = HabitLog.normalizeDate(date);
-    return _logs.any(
-      (l) => l.habitId == habitId && l.date == normalized && l.status == 'done',
-    );
+    Habit? habit;
+    try {
+      habit = _habits.firstWhere((h) => h.id == habitId);
+    } catch (_) {
+      habit = null;
+    }
+
+    HabitLog? log;
+    try {
+      log = _logs.firstWhere(
+        (l) => l.habitId == habitId && l.date == normalized,
+      );
+    } catch (_) {
+      log = null;
+    }
+
+    if (habit == null || log == null) return false;
+    return _isLogCompleted(habit, log);
+  }
+
+  /// Update the count log for a specific date.
+  Future<void> setCountForDate(
+      String habitId, DateTime date, int count) async {
+    final targetDay = HabitLog.normalizeDate(date);
+    Habit? habit;
+    try {
+      habit = _habits.firstWhere((h) => h.id == habitId);
+    } catch (_) {
+      habit = null;
+    }
+    if (habit == null) return;
+
+    HabitLog? existing;
+    try {
+      existing = _logs.firstWhere(
+        (l) => l.habitId == habitId && l.date == targetDay,
+      );
+    } catch (_) {
+      existing = null;
+    }
+
+    if (existing != null) {
+      _logs.removeWhere((l) => l.id == existing.id);
+      await _storage.deleteLog(existing.id);
+    }
+
+    if (count > 0) {
+      final log = HabitLog(
+        id: existing?.id ?? _uuid.v4(),
+        habitId: habitId,
+        date: targetDay,
+        status: 'done',
+        count: count,
+      );
+      _logs.add(log);
+      await _storage.saveLog(log);
+    }
+
+    await _recalcStreak(habitId);
+    notifyListeners();
   }
 
   /// Toggle today's completion for a habit.
   Future<void> toggleToday(String habitId) async {
-    await toggleForDate(habitId, DateTime.now());
+    Habit? habit;
+    try {
+      habit = _habits.firstWhere((h) => h.id == habitId);
+    } catch (_) {
+      habit = null;
+    }
+    if (habit == null) return;
+
+    final today = DateTime.now();
+    if (habit.frequency == 'daily' && habit.target > 1) {
+      final currentCount = countForDate(habitId, today);
+      if (currentCount > 0) {
+        await setCountForDate(habitId, today, 0);
+      } else {
+        await setCountForDate(habitId, today, habit.target);
+      }
+      return;
+    }
+
+    await toggleForDate(habitId, today);
   }
 
   /// Toggle completion for a specific date.
   Future<void> toggleForDate(String habitId, DateTime date) async {
     final targetDay = HabitLog.normalizeDate(date);
-
-    final existing = _logs.where(
-      (l) => l.habitId == habitId && l.date == targetDay,
-    ).toList();
-
-    if (existing.isNotEmpty) {
-      // Un-complete: remove the selected day's log(s)
-      for (final log in existing) {
-        _logs.removeWhere((l) => l.id == log.id);
-        await _storage.deleteLog(log.id);
-      }
-      await _recalcStreak(habitId);
-    } else {
-      // Mark complete for the selected day
-      final log = HabitLog(
-        id: _uuid.v4(),
-        habitId: habitId,
-        date: targetDay,
-        status: 'done',
+    HabitLog? existing;
+    try {
+      existing = _logs.firstWhere(
+        (l) => l.habitId == habitId && l.date == targetDay,
       );
-      _logs.add(log);
-      await _storage.saveLog(log);
-      await _recalcStreak(habitId);
+    } catch (_) {
+      existing = null;
     }
+
+    if (existing != null) {
+      _logs.removeWhere((l) => l.id == existing.id);
+      await _storage.deleteLog(existing.id);
+      await _recalcStreak(habitId);
+      notifyListeners();
+      return;
+    }
+
+    Habit? habit;
+    try {
+      habit = _habits.firstWhere((h) => h.id == habitId);
+    } catch (_) {
+      habit = null;
+    }
+    if (habit == null) return;
+
+    final log = HabitLog(
+      id: _uuid.v4(),
+      habitId: habitId,
+      date: targetDay,
+      status: 'done',
+      count: habit.frequency == 'daily' && habit.target > 1 ? habit.target : 1,
+    );
+    _logs.add(log);
+    await _storage.saveLog(log);
+    await _recalcStreak(habitId);
     notifyListeners();
   }
 
@@ -143,15 +253,16 @@ class HabitProvider extends ChangeNotifier {
     final idx = _habits.indexWhere((h) => h.id == habitId);
     if (idx == -1) return;
 
+    final habit = _habits[idx];
     final doneDates = _logs
-        .where((l) => l.habitId == habitId && l.status == 'done')
+        .where((l) => l.habitId == habitId && _isLogCompleted(habit, l))
         .map((l) => l.date)
         .toSet()
         .toList()
       ..sort();
 
     if (doneDates.isEmpty) {
-      final updated = _habits[idx].copyWith(
+      final updated = habit.copyWith(
         currentStreak: 0,
         lastCompletedDate: null,
       );
@@ -160,7 +271,6 @@ class HabitProvider extends ChangeNotifier {
       return;
     }
 
-    // Calculate current streak from today backwards
     final today = HabitLog.normalizeDate(DateTime.now());
     int streak = 0;
     DateTime cursor = today;
@@ -171,8 +281,8 @@ class HabitProvider extends ChangeNotifier {
     }
 
     final lastDate = doneDates.last;
-    final longest = _habits[idx].longestStreak;
-    final updated = _habits[idx].copyWith(
+    final longest = habit.longestStreak;
+    final updated = habit.copyWith(
       currentStreak: streak,
       longestStreak: streak > longest ? streak : longest,
       lastCompletedDate: lastDate,
@@ -221,10 +331,9 @@ class HabitProvider extends ChangeNotifier {
     return _logs
         .where((l) =>
             l.habitId == habitId &&
-            l.status == 'done' &&
             !l.date.isBefore(startOfWeek) &&
             !l.date.isAfter(endOfWeek))
-        .length;
+        .fold<int>(0, (sum, l) => sum + l.count);
   }
 
   /// Overall completion rate (last 30 days) across all daily habits.
@@ -255,8 +364,16 @@ class HabitProvider extends ChangeNotifier {
     final today = HabitLog.normalizeDate(DateTime.now());
     return List.generate(days, (i) {
       final day = today.subtract(Duration(days: days - 1 - i));
-      return logsForDate(day).where((l) => l.status == 'done').length;
+      return logsForDate(day)
+          .where((l) => l.status == 'done')
+          .fold<int>(0, (sum, l) => sum + l.count);
     });
+  }
+
+  int totalCountForHabit(String habitId) {
+    return logsForHabit(habitId)
+        .where((l) => l.status == 'done')
+        .fold<int>(0, (sum, l) => sum + l.count);
   }
 
   /// Habit with the highest current streak.

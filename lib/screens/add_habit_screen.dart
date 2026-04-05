@@ -97,7 +97,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       description: _descCtrl.text.trim(),
       category: _category,
       frequency: _frequency,
-      target: _frequency == 'weekly' ? _target : 1,
+      target: _target,
       startDate: _startDate,
       reminderTime: _reminderTime,
       colorValue: _colorValue,
@@ -326,6 +326,54 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                       depth: 4,
                       child: Icon(Icons.add_rounded,
                           color: _target < 7
+                              ? NeuColors.primary
+                              : NeuColors.textSecondary(isDark)),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 18),
+              _SectionLabel('Times per day', isDark),
+              const SizedBox(height: 10),
+              NeuBox(
+                style: NeuStyle.raised,
+                borderRadius: 14,
+                depth: 5,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    NeuButton(
+                      onTap: _target > 1 ? () => setState(() => _target--) : null,
+                      borderRadius: 10,
+                      padding: const EdgeInsets.all(10),
+                      depth: 4,
+                      child: Icon(Icons.remove_rounded,
+                          color: _target > 1
+                              ? NeuColors.primary
+                              : NeuColors.textSecondary(isDark)),
+                    ),
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 28),
+                      child: Text(
+                        '$_target',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: NeuColors.textPrimary(isDark),
+                        ),
+                      ),
+                    ),
+                    NeuButton(
+                      onTap: _target < 20 ? () => setState(() => _target++) : null,
+                      borderRadius: 10,
+                      padding: const EdgeInsets.all(10),
+                      depth: 4,
+                      child: Icon(Icons.add_rounded,
+                          color: _target < 20
                               ? NeuColors.primary
                               : NeuColors.textSecondary(isDark)),
                     ),

@@ -357,7 +357,7 @@ class _Heatmap extends StatelessWidget {
                 final count = provider
                     .logsForDate(date)
                     .where((l) => l.status == 'done')
-                    .length;
+                    .fold<int>(0, (sum, l) => sum + l.count);
                 final intensity =
                     maxHabits > 0 ? count / maxHabits : 0.0;
                 final isFuture = date.isAfter(today);
@@ -453,7 +453,9 @@ class _HabitStatRow extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = Color(habit.colorValue);
     final logs = provider.logsForHabit(habit.id);
-    final done = logs.where((l) => l.status == 'done').length;
+    final done = logs
+        .where((l) => l.status == 'done')
+        .fold<int>(0, (sum, l) => sum + l.count);
 
     final today = HabitLog.normalizeDate(DateTime.now());
     int doneThisWeek = 0;

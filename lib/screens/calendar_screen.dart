@@ -164,11 +164,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           habit.id,
                           _selectedDay,
                         );
+                        final todayCount = provider.countForDate(
+                          habit.id,
+                          _selectedDay,
+                        );
+                        final isCountBased =
+                            habit.frequency == 'daily' && habit.target > 1;
                         return _HabitDayItem(
                           habit: habit,
                           isDone: isDone,
-                          onToggle: () =>
-                              provider.toggleForDate(habit.id, _selectedDay),
+                          count: todayCount,
+                          isCountBased: isCountBased,
+                          onToggle: () async {
+                            if (isCountBased) {
+                              await _showCountDialog(
+                                  context, habit, todayCount);
+                            } else {
+                              await provider.toggleForDate(
+                                  habit.id, _selectedDay);
+                            }
+                          },
                         );
                       }),
                     ],
@@ -178,16 +193,71 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+  Future<void> _showCountDialog(
+      BuildContext context, Habit habit, int currentCount) async {
+    final controller = TextEditingController(text: '$currentCount');
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('Log today'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter how many times you did this today.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: '0',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Target: ${habit.target}',
+                style: TextStyle(color: NeuColors.textSecondary(isDark)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final input = int.tryParse(controller.text.trim()) ?? 0;
+                context
+                    .read<HabitProvider>()
+                    .setCountForDate(habit.id, _selectedDay, input);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _HabitDayItem extends StatelessWidget {
   final Habit habit;
   final bool isDone;
+  final int count;
+  final bool isCountBased;
   final Future<void> Function() onToggle;
 
   const _HabitDayItem({
     required this.habit,
     required this.isDone,
+    this.count = 0,
+    this.isCountBased = false,
     required this.onToggle,
   });
 
@@ -229,7 +299,9 @@ class _HabitDayItem extends StatelessWidget {
                         color: NeuColors.textPrimary(isDark)),
                   ),
                   Text(
-                    habit.category,
+                    isCountBased
+                        ? '$count/${habit.target} today'
+                        : habit.category,
                     style: TextStyle(
                         fontSize: 12,
                         color: NeuColors.textSecondary(isDark)),

@@ -14,11 +14,14 @@ class HabitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HabitProvider>();
-    final isCompleted = provider.isCompletedOnDate(habit.id, DateTime.now());
     final color = Color(habit.colorValue);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final isWeekly = habit.frequency == 'weekly';
+    final todayCount = provider.countForDate(habit.id, DateTime.now());
+    final isCountBased = habit.frequency == 'daily' && habit.target > 1;
+    final isCompleted = isCountBased
+        ? todayCount >= habit.target
+        : provider.isCompletedOnDate(habit.id, DateTime.now());
     final weeklyDone = isWeekly ? provider.completionsThisWeek(habit.id) : 0;
     final weeklyTarget = habit.target;
 
@@ -94,6 +97,14 @@ class HabitCard extends StatelessWidget {
                               color: NeuColors.textSecondary(isDark),
                             ),
                           ),
+                        if (isCountBased)
+                          Text(
+                            '$todayCount/${habit.target} today',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: NeuColors.textSecondary(isDark),
+                            ),
+                          ),
                       ],
                     ),
                     if (isWeekly) ...[
@@ -101,6 +112,15 @@ class HabitCard extends StatelessWidget {
                       _NeuProgressBar(
                         value: weeklyTarget > 0
                             ? weeklyDone / weeklyTarget
+                            : 0,
+                        color: color,
+                      ),
+                    ],
+                    if (isCountBased) ...[
+                      const SizedBox(height: 8),
+                      _NeuProgressBar(
+                        value: habit.target > 0
+                            ? todayCount / habit.target
                             : 0,
                         color: color,
                       ),
@@ -113,13 +133,68 @@ class HabitCard extends StatelessWidget {
               _CompleteButton(
                 isCompleted: isCompleted,
                 color: color,
-                onTap: () =>
-                    context.read<HabitProvider>().toggleToday(habit.id),
+                onTap: () {
+                  if (isCountBased) {
+                    _showCountDialog(context, habit, todayCount);
+                  } else {
+                    context.read<HabitProvider>().toggleToday(habit.id);
+                  }
+                },
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showCountDialog(BuildContext context, Habit habit, int currentCount) {
+    final controller = TextEditingController(text: '$currentCount');
+    showDialog(
+      context: context,
+      builder: (_) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('Log today'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Enter how many times you did this today.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: '0',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Target: ${habit.target}',
+                style: TextStyle(color: NeuColors.textSecondary(isDark)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final input = int.tryParse(controller.text.trim()) ?? 0;
+                context
+                    .read<HabitProvider>()
+                    .setCountForDate(habit.id, DateTime.now(), input);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
