@@ -129,17 +129,6 @@ class HabitCard extends StatelessWidget {
                   color: color,
                   isDark: isDark,
                   onIncrement: () async {
-                    if (habit.loggingMode == 'time') {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.now(),
-                      );
-                      if (picked == null || !context.mounted) return;
-                      await context
-                          .read<HabitProvider>()
-                          .addTimedOccurrence(habit.id, picked);
-                      return;
-                    }
                     await context.read<HabitProvider>().addOccurrence(habit.id);
                   },
                   onDecrement: () => context

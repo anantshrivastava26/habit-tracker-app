@@ -2,7 +2,7 @@ name: habit_tracker
 description: "A beautiful habit tracker app with streaks, analytics, and reminders."
 publish_to: 'none'
 
-version: 1.0.5+5
+version: 1.0.6+6
 
 environment:
   sdk: ^3.11.1

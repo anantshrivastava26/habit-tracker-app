@@ -197,27 +197,12 @@ class HabitDetailScreen extends StatelessWidget {
                       const SizedBox(width: 12),
                       NeuButton(
                         onTap: () async {
-                          if (habit.loggingMode == 'time') {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (picked == null || !context.mounted) return;
-                            await provider.addTimedOccurrence(
-                                habit.id, picked);
-                          } else {
-                            await provider.addOccurrence(habit.id);
-                          }
+                          await provider.addOccurrence(habit.id);
                         },
                         borderRadius: 14,
                         depth: 4,
                         padding: const EdgeInsets.all(14),
-                        child: Icon(
-                          habit.loggingMode == 'time'
-                              ? Icons.schedule_rounded
-                              : Icons.add_rounded,
-                          color: color,
-                        ),
+                        child: Icon(Icons.add_rounded, color: color),
                       ),
                       const SizedBox(width: 8),
                       NeuButton(
