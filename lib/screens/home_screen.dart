@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../models/habit.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/neu_box.dart';
 import 'add_habit_screen.dart';
 import 'habit_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? _selectedCategory; // null = show all
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -22,21 +30,30 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HabitProvider>();
-    final habits = provider.activeHabits;
+    final allHabits = provider.activeHabits;
     final todayStr = DateFormat('EEEE, MMMM d').format(DateTime.now());
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = NeuColors.background(isDark);
     final dk = NeuColors.shadowDark(isDark);
     final lt = NeuColors.shadowLight(isDark);
 
-    final todayDone = habits
+    // Unique categories present in active habits
+    final categories = allHabits.map((h) => h.category).toSet().toList()
+      ..sort();
+
+    // Apply category filter
+    final habits = _selectedCategory == null
+        ? allHabits
+        : allHabits.where((h) => h.category == _selectedCategory).toList();
+
+    final todayDone = allHabits
         .where((h) => provider.isCompletedOnDate(h.id, DateTime.now()))
         .length;
 
     return Scaffold(
       body: Column(
         children: [
-          // ── Neumorphic Header ────────────────────────────────────────────
+          // ── Neumorphic Header ──────────────────────────────────────────
           Container(
             decoration: BoxDecoration(
               color: bg,
@@ -46,22 +63,19 @@ class HomeScreen extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                    color: dk,
-                    offset: const Offset(4, 8),
-                    blurRadius: 16),
+                    color: dk, offset: const Offset(4, 8), blurRadius: 16),
                 BoxShadow(
-                    color: lt,
-                    offset: const Offset(-4, -4),
-                    blurRadius: 12),
+                    color: lt, offset: const Offset(-4, -4), blurRadius: 12),
               ],
             ),
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Greeting + search
                     Row(
                       children: [
                         Expanded(
@@ -90,7 +104,7 @@ class HomeScreen extends StatelessWidget {
                         NeuButton(
                           onTap: () => showSearch(
                             context: context,
-                            delegate: _HabitSearch(habits: habits),
+                            delegate: _HabitSearch(habits: allHabits),
                           ),
                           borderRadius: 12,
                           padding: const EdgeInsets.all(10),
@@ -100,8 +114,10 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (habits.isNotEmpty) ...[
+
+                    if (allHabits.isNotEmpty) ...[
                       const SizedBox(height: 18),
+                      // Today's habits count + progress
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -114,7 +130,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '$todayDone / ${habits.length}',
+                            '$todayDone / ${allHabits.length}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
@@ -125,7 +141,39 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       _NeuProgressBar(
-                          done: todayDone, total: habits.length),
+                          done: todayDone, total: allHabits.length),
+
+                      // ── Category filter chips ──────────────────────────
+                      if (categories.length > 1) ...[
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          height: 32,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _FilterChip(
+                                label: 'All',
+                                selected: _selectedCategory == null,
+                                onTap: () =>
+                                    setState(() => _selectedCategory = null),
+                                isDark: isDark,
+                              ),
+                              ...categories.map(
+                                (cat) => _FilterChip(
+                                  label: cat,
+                                  selected: _selectedCategory == cat,
+                                  onTap: () => setState(() =>
+                                      _selectedCategory =
+                                          _selectedCategory == cat
+                                              ? null
+                                              : cat),
+                                  isDark: isDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -133,10 +181,17 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
 
-          // ── Habit List ───────────────────────────────────────────────────
+          // ── Habit List ─────────────────────────────────────────────────
           Expanded(
             child: habits.isEmpty
-                ? const _EmptyState()
+                ? (allHabits.isEmpty
+                    ? const _EmptyState()
+                    : _NoFilterResults(
+                        category: _selectedCategory ?? '',
+                        isDark: isDark,
+                        onClear: () =>
+                            setState(() => _selectedCategory = null),
+                      ))
                 : ListView.builder(
                     padding: const EdgeInsets.only(top: 12, bottom: 100),
                     itemCount: habits.length,
@@ -159,6 +214,109 @@ class HomeScreen extends StatelessWidget {
           context,
           MaterialPageRoute(builder: (_) => const AddHabitScreen()),
         ),
+      ),
+    );
+  }
+}
+
+// ── Category filter chip ──────────────────────────────────────────────────────
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? NeuColors.primary
+                : NeuColors.background(isDark),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? NeuColors.primary
+                  : NeuColors.textSecondary(isDark).withValues(alpha: 0.25),
+              width: 1,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: NeuColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight:
+                  selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected
+                  ? Colors.white
+                  : NeuColors.textSecondary(isDark),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Empty filter result ────────────────────────────────────────────────────────
+
+class _NoFilterResults extends StatelessWidget {
+  final String category;
+  final bool isDark;
+  final VoidCallback onClear;
+
+  const _NoFilterResults({
+    required this.category,
+    required this.isDark,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.filter_list_off_rounded,
+              size: 48,
+              color: NeuColors.textSecondary(isDark).withValues(alpha: 0.4)),
+          const SizedBox(height: 12),
+          Text(
+            'No habits in "$category"',
+            style: TextStyle(
+              fontSize: 15,
+              color: NeuColors.textSecondary(isDark),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onClear,
+            child: const Text('Show all'),
+          ),
+        ],
       ),
     );
   }
@@ -273,15 +431,14 @@ class _NeuFab extends StatelessWidget {
 // ── Search ────────────────────────────────────────────────────────────────────
 
 class _HabitSearch extends SearchDelegate<String> {
-  final List habits;
+  final List<Habit> habits;
 
   _HabitSearch({required this.habits});
 
   @override
   List<Widget>? buildActions(BuildContext context) => [
         IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () => query = ''),
+            icon: const Icon(Icons.clear), onPressed: () => query = ''),
       ];
 
   @override
@@ -296,8 +453,7 @@ class _HabitSearch extends SearchDelegate<String> {
   @override
   Widget buildSuggestions(BuildContext context) {
     final results = habits
-        .where(
-            (h) => h.title.toLowerCase().contains(query.toLowerCase()))
+        .where((h) => h.title.toLowerCase().contains(query.toLowerCase()))
         .toList();
     return ListView.builder(
       itemCount: results.length,
@@ -306,8 +462,7 @@ class _HabitSearch extends SearchDelegate<String> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                HabitDetailScreen(habitId: results[i].id),
+            builder: (_) => HabitDetailScreen(habitId: results[i].id),
           ),
         ),
       ),

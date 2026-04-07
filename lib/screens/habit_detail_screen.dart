@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../models/habit_log.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/streak_badge.dart';
 import '../widgets/neu_box.dart';
@@ -28,13 +30,25 @@ class HabitDetailScreen extends StatelessWidget {
     final logs = provider.logsForHabit(habitId);
     final doneLogs = logs.where((l) => l.status == 'done').toList()
       ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
-    final recentLogs = doneLogs.take(10).toList();
     final todayCount = provider.countForDate(habitId, DateTime.now());
     final periodCount = habit.frequency == 'weekly'
         ? provider.completionsThisWeek(habitId)
         : todayCount;
     final todayDone = provider.isCompletedOnDate(habitId, DateTime.now());
     final periodLabel = habit.frequency == 'weekly' ? 'This week' : 'Today';
+
+    // Build heatmap dataset: date → completion count
+    final Map<DateTime, int> heatmapData = {};
+    for (final log in doneLogs) {
+      final date = HabitLog.normalizeDate(log.loggedAt);
+      heatmapData.update(date, (v) => v + 1, ifAbsent: () => 1);
+    }
+
+    // Show at most the last 6 months (or from start date, whichever is later)
+    final now = DateTime.now();
+    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+    final heatmapStart =
+        habit.startDate.isAfter(sixMonthsAgo) ? habit.startDate : sixMonthsAgo;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,7 +88,7 @@ class HabitDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // ── Header card ────────────────────────────────────────────────
+          // ── Header card ──────────────────────────────────────────────
           NeuBox(
             style: NeuStyle.raised,
             borderRadius: 22,
@@ -109,8 +123,7 @@ class HabitDetailScreen extends StatelessWidget {
                   Text(
                     habit.description,
                     style: TextStyle(
-                        color: NeuColors.textSecondary(isDark),
-                        fontSize: 13),
+                        color: NeuColors.textSecondary(isDark), fontSize: 13),
                     textAlign: TextAlign.center,
                     maxLines: 3,
                   ),
@@ -120,7 +133,7 @@ class HabitDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Quick Log Controls ────────────────────────────────────────
+          // ── Quick Log Controls ───────────────────────────────────────
           NeuBox(
             style: NeuStyle.raised,
             borderRadius: 18,
@@ -167,14 +180,11 @@ class HabitDetailScreen extends StatelessWidget {
                               horizontal: 14, vertical: 12),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.insights_rounded,
-                                color: color,
-                                size: 20,
-                              ),
+                              Icon(Icons.insights_rounded,
+                                  color: color, size: 20),
                               const SizedBox(width: 10),
                               Text(
-                                  '$periodCount / ${habit.target} ${habit.frequency == 'weekly' ? 'this week' : 'today'}',
+                                '$periodCount / ${habit.target} ${habit.frequency == 'weekly' ? 'this week' : 'today'}',
                                 style: TextStyle(
                                   color: NeuColors.textPrimary(isDark),
                                   fontWeight: FontWeight.w600,
@@ -193,7 +203,8 @@ class HabitDetailScreen extends StatelessWidget {
                               initialTime: TimeOfDay.now(),
                             );
                             if (picked == null || !context.mounted) return;
-                            await provider.addTimedOccurrence(habit.id, picked);
+                            await provider.addTimedOccurrence(
+                                habit.id, picked);
                           } else {
                             await provider.addOccurrence(habit.id);
                           }
@@ -231,7 +242,7 @@ class HabitDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Stats row ──────────────────────────────────────────────────
+          // ── Stats row ────────────────────────────────────────────────
           Row(
             children: [
               _StatCard(
@@ -261,13 +272,13 @@ class HabitDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Streak badge ───────────────────────────────────────────────
+          // ── Streak badge ─────────────────────────────────────────────
           if (habit.currentStreak > 0) ...[
             Center(child: StreakBadge(streak: habit.currentStreak)),
             const SizedBox(height: 20),
           ],
 
-          // ── Details card ───────────────────────────────────────────────
+          // ── Details card ─────────────────────────────────────────────
           NeuBox(
             style: NeuStyle.raised,
             borderRadius: 18,
@@ -322,9 +333,9 @@ class HabitDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Recent Activity ────────────────────────────────────────────
+          // ── Activity Heatmap ─────────────────────────────────────────
           Text(
-            'Recent Activity',
+            'Activity Heatmap',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -332,64 +343,51 @@ class HabitDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          if (recentLogs.isEmpty)
-            Text(
-              'No completions yet. Start today!',
-              style: TextStyle(color: NeuColors.textSecondary(isDark)),
-            )
-          else
-            NeuBox(
-              style: NeuStyle.raised,
-              borderRadius: 18,
-              depth: 5,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: List.generate(recentLogs.length, (i) {
-                  final log = recentLogs[i];
-                  final isLast = i == recentLogs.length - 1;
-                  final hasTime =
-                      log.loggedAt.hour != 0 || log.loggedAt.minute != 0;
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                hasTime
-                                    ? '${DateFormat('EEEE, MMM d').format(log.loggedAt)} • ${DateFormat('h:mm a').format(log.loggedAt)}'
-                                    : DateFormat('EEEE, MMM d')
-                                        .format(log.loggedAt),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: NeuColors.textPrimary(isDark),
-                                ),
-                              ),
-                            ),
-                          ],
+          NeuBox(
+            style: NeuStyle.raised,
+            borderRadius: 18,
+            depth: 5,
+            padding: const EdgeInsets.all(16),
+            child: doneLogs.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No completions yet. Start today!',
+                      style:
+                          TextStyle(color: NeuColors.textSecondary(isDark)),
+                    ),
+                  )
+                : HeatMap(
+                    startDate: heatmapStart,
+                    endDate: now,
+                    datasets: heatmapData,
+                    colorMode: ColorMode.opacity,
+                    defaultColor: isDark
+                        ? const Color(0xFF2D3442)
+                        : const Color(0xFFE0E5EC),
+                    colorsets: {1: color},
+                    showText: false,
+                    scrollable: true,
+                    size: 14,
+                    borderRadius: 3,
+                    fontSize: 9,
+                    onClick: (date) {
+                      final count = heatmapData[
+                              HabitLog.normalizeDate(date)] ??
+                          0;
+                      if (count == 0) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${DateFormat('MMM d, yyyy').format(date)} — $count completion${count > 1 ? 's' : ''}',
+                          ),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
                         ),
-                      ),
-                      if (!isLast)
-                        Divider(
-                          color: NeuColors.textSecondary(isDark)
-                              .withValues(alpha: 0.1),
-                          height: 1,
-                        ),
-                    ],
-                  );
-                }),
-              ),
-            ),
+                      );
+                    },
+                  ),
+          ),
           const SizedBox(height: 30),
         ],
       ),
@@ -430,8 +428,7 @@ class _RowDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Divider(
-      color: NeuColors.textSecondary(isDark)
-          .withValues(alpha: 0.1),
+      color: NeuColors.textSecondary(isDark).withValues(alpha: 0.1),
       height: 1);
 }
 
@@ -466,9 +463,7 @@ class _StatCard extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: color),
+                  fontSize: 22, fontWeight: FontWeight.bold, color: color),
             ),
             Text(unit,
                 style: TextStyle(

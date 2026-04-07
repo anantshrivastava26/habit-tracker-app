@@ -54,6 +54,30 @@ class SettingsScreen extends StatelessWidget {
               }
             },
           ),
+          // Battery optimisation — critical for Realme / OPPO / Xiaomi devices
+          // where aggressive power management silently kills scheduled alarms.
+          ListTile(
+            leading: const Icon(Icons.battery_saver_outlined,
+                color: Color(0xFF6C63FF)),
+            title: const Text('Fix Notifications (Battery)'),
+            subtitle: const Text(
+                'Disable battery optimisation so reminders fire reliably on Realme / OPPO / Xiaomi devices'),
+            onTap: () async {
+              final ns = NotificationService();
+              final already = await ns.isIgnoringBatteryOptimizations();
+              if (!context.mounted) return;
+              if (already) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Battery optimisation is already disabled for this app.'),
+                  ),
+                );
+              } else {
+                await ns.requestBatteryOptimizationExemption();
+              }
+            },
+          ),
 
           const _SectionHeader('Data'),
           ListTile(

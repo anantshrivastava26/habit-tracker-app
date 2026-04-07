@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -10,6 +11,7 @@ class NotificationService {
   NotificationService._();
 
   static const _iosSoundName = 'habit_chime.aiff';
+  static const _systemChannel = MethodChannel('com.lifeloop.app/system');
 
   static const AndroidNotificationChannel _habitRemindersChannel =
       AndroidNotificationChannel(
@@ -43,38 +45,59 @@ class NotificationService {
     );
 
     await _plugin.initialize(
-      const InitializationSettings(
-        android: android,
-        iOS: ios,
-      ),
+      const InitializationSettings(android: android, iOS: ios),
     );
 
+    // Create / update the notification channel every time so it persists across
+    // app updates and survives the user deleting it from system settings.
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_habitRemindersChannel);
 
-    // Safe across Android versions: this only prompts on Android 13+.
+    // Request POST_NOTIFICATIONS permission (Android 13+; no-op on lower APIs).
     try {
       await _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-    } catch (_) {
-      // Avoid startup crashes if a device/ROM throws here.
-    }
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+    } catch (_) {}
 
+    // Request SCHEDULE_EXACT_ALARM permission (Android 12+; no-op on lower APIs).
     try {
       await _plugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestExactAlarmsPermission();
-    } catch (_) {
-      // Some Android builds do not expose the exact-alarm prompt.
-    }
+    } catch (_) {}
 
     _initialized = true;
   }
+
+  // ── Battery optimisation (critical for Realme / OPPO / Xiaomi devices) ──────
+
+  /// Returns true when this app is already excluded from battery optimisation.
+  Future<bool> isIgnoringBatteryOptimizations() async {
+    try {
+      return await _systemChannel
+              .invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Shows the system dialog asking the user to exempt this app from battery
+  /// optimisation.  Must be called while the activity is in the foreground
+  /// (e.g. from a button tap in the Settings screen).
+  Future<void> requestBatteryOptimizationExemption() async {
+    try {
+      await _systemChannel
+          .invokeMethod('requestIgnoreBatteryOptimizations');
+    } catch (_) {}
+  }
+
+  // ── Scheduling ───────────────────────────────────────────────────────────────
 
   int _notifId(String habitId) => habitId.hashCode.abs() % 2147483647;
 
@@ -106,9 +129,13 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
+      // Ensure the notification heads-up on locked screen (important for OEM ROMs).
+      fullScreenIntent: false,
+      visibility: NotificationVisibility.public,
     );
 
     const iosDetails = DarwinNotificationDetails(sound: _iosSoundName);
+    final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     try {
       await _plugin.zonedSchedule(
@@ -118,27 +145,32 @@ class NotificationService {
             ? habit.description
             : 'Keep the streak alive! 🔥',
         scheduledDate,
-        NotificationDetails(android: androidDetails, iOS: iosDetails),
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
       );
     } catch (_) {
-      // Fallback for devices where exact scheduling isn't available.
-      await _plugin.zonedSchedule(
-        _notifId(habit.id),
-        'Time for: ${habit.title}',
-        habit.description.isNotEmpty
-            ? habit.description
-            : 'Keep the streak alive! 🔥',
-        scheduledDate,
-        NotificationDetails(android: androidDetails, iOS: iosDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
+      // Fallback for devices that deny exact alarms (e.g. Android 12+ without
+      // SCHEDULE_EXACT_ALARM permission granted by the user).
+      try {
+        await _plugin.zonedSchedule(
+          _notifId(habit.id),
+          'Time for: ${habit.title}',
+          habit.description.isNotEmpty
+              ? habit.description
+              : 'Keep the streak alive! 🔥',
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+      } catch (_) {
+        // Device does not support scheduled notifications; silently ignore.
+      }
     }
   }
 
