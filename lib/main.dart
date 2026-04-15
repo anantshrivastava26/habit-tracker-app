@@ -3,32 +3,47 @@ import 'package:provider/provider.dart';
 import 'services/storage_service.dart';
 import 'services/notification_service.dart';
 import 'services/widget_sync_service.dart';
+import 'repositories/notification_repository.dart';
 import 'providers/habit_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/notification_screen.dart';
 import 'app_theme.dart';
 import 'widgets/neu_box.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final storage = StorageService();
   await StorageService.init();
+  await NotificationRepository.init();
+
+  final storage = StorageService();
+  final notificationRepo = NotificationRepository();
+  final notificationProvider = NotificationProvider(notificationRepo);
+  notificationProvider.load();
 
   final notifications = NotificationService();
-  await notifications.init();
-  final widgetSync = WidgetSyncService();
+  await notifications.init(
+    notificationProvider: notificationProvider,
+    navigatorKey: navigatorKey,
+  );
 
   final settingsProvider = SettingsProvider();
   await settingsProvider.load();
+
+  final widgetSync = WidgetSyncService();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: settingsProvider),
+        ChangeNotifierProvider.value(value: notificationProvider),
         ChangeNotifierProvider(
           create: (_) {
             final provider = HabitProvider(storage, notifications, widgetSync);
@@ -50,11 +65,16 @@ class HabitTrackerApp extends StatelessWidget {
     final settings = context.watch<SettingsProvider>();
     return MaterialApp(
       title: 'LifeLoop',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.darkMode ? ThemeMode.dark : ThemeMode.light,
-      home: const MainShell(),
+      routes: {
+        '/': (context) => const MainShell(),
+        '/notifications': (context) => const NotificationScreen(),
+      },
+      initialRoute: '/',
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../models/notification_entry.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/widget_sync_service.dart';
@@ -174,6 +175,14 @@ class HabitProvider extends ChangeNotifier {
         );
         _logs.add(log);
         await _storage.saveLog(log);
+
+        // If 'check' mode target is always 1
+        await _notifications.showLocalNotification(
+          title: 'Goal Reached! 🎯',
+          body: 'You completed your goal for "${habit.title}" today!',
+          type: 'habit.completion',
+          payload: {'habitId': habitId},
+        );
       }
       await _recalcStreak(habitId);
       await _syncWidget();
@@ -198,6 +207,18 @@ class HabitProvider extends ChangeNotifier {
     );
     _logs.add(log);
     await _storage.saveLog(log);
+
+    // Notify if milestone reached (completion of daily target)
+    final countToday = _countLogsOnDate(habitId, loggedAt);
+    if (countToday == habit.target) {
+      await _notifications.showLocalNotification(
+        title: 'Goal Reached! 🎯',
+        body: 'You completed your goal for "${habit.title}" today!',
+        type: 'habit.completion',
+        payload: {'habitId': habitId},
+      );
+    }
+
     await _recalcStreak(habitId);
     await _syncWidget();
     notifyListeners();
@@ -256,13 +277,39 @@ class HabitProvider extends ChangeNotifier {
 
     final lastDate = doneDates.last;
     final longest = _habits[idx].longestStreak;
+    final isNewLongest = streak > longest;
+    
     final updated = _habits[idx].copyWith(
       currentStreak: streak,
-      longestStreak: streak > longest ? streak : longest,
+      longestStreak: isNewLongest ? streak : longest,
       lastCompletedDate: lastDate,
     );
     _habits[idx] = updated;
     await _storage.saveHabit(updated);
+
+    if (isNewLongest && streak > 1) {
+      await _notifications.showLocalNotification(
+        title: 'New Personal Best! 🔥',
+        body: 'You reached a $streak day streak for "${updated.title}"!',
+        type: 'streak.milestone',
+        payload: {'habitId': habitId, 'streak': streak},
+      );
+    }
+  }
+
+  /// Manually trigger a system notification (e.g., from UI button).
+  Future<void> showSystemNotification({
+    required String title,
+    required String body,
+    String? type,
+    Map<String, dynamic>? payload,
+  }) async {
+    await _notifications.showLocalNotification(
+      title: title,
+      body: body,
+      type: type,
+      payload: payload,
+    );
   }
 
   /// On app launch, reset streaks for habits that were missed yesterday.

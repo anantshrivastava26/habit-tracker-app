@@ -1,9 +1,12 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 import '../models/habit.dart';
+import '../models/notification_entry.dart';
+import '../providers/notification_provider.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
@@ -15,7 +18,7 @@ class NotificationService {
 
   static const AndroidNotificationChannel _habitRemindersChannel =
       AndroidNotificationChannel(
-    'habit_reminders_v2',
+    'habit_reminders_v3',
     'Habit Reminders',
     description: 'Daily reminders for your habits',
     importance: Importance.high,
@@ -26,18 +29,24 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  NotificationProvider? _notificationProvider;
+  GlobalKey<NavigatorState>? _navigatorKey;
 
-  Future<void> init() async {
+  Future<void> init({
+    NotificationProvider? notificationProvider,
+    GlobalKey<NavigatorState>? navigatorKey,
+  }) async {
     if (_initialized) return;
+    _notificationProvider = notificationProvider;
+    _navigatorKey = navigatorKey;
+
     tz.initializeTimeZones();
     try {
       final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
-    } catch (_) {
-      // Fall back to the package default location if the platform lookup fails.
-    }
+    } catch (_) {}
 
-    const android = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const android = AndroidInitializationSettings('ic_notification');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -46,16 +55,14 @@ class NotificationService {
 
     await _plugin.initialize(
       const InitializationSettings(android: android, iOS: ios),
+      onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Create / update the notification channel every time so it persists across
-    // app updates and survives the user deleting it from system settings.
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_habitRemindersChannel);
 
-    // Request POST_NOTIFICATIONS permission (Android 13+; no-op on lower APIs).
     try {
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -63,7 +70,6 @@ class NotificationService {
           ?.requestNotificationsPermission();
     } catch (_) {}
 
-    // Request SCHEDULE_EXACT_ALARM permission (Android 12+; no-op on lower APIs).
     try {
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -72,6 +78,54 @@ class NotificationService {
     } catch (_) {}
 
     _initialized = true;
+  }
+
+  void _onNotificationTapped(NotificationResponse response) {
+    if (_navigatorKey?.currentState != null) {
+      _navigatorKey!.currentState!.pushNamed('/notifications');
+    }
+  }
+
+  /// Manually trigger a local notification and save it to the inbox.
+  /// This mimics the "Foreground Handling" logic.
+  Future<void> showLocalNotification({
+    required String title,
+    required String body,
+    String? type,
+    Map<String, dynamic>? payload,
+  }) async {
+    final entry = NotificationEntry(
+      title: title,
+      body: body,
+      type: type,
+      payload: payload,
+    );
+
+    // 1. Save to local inbox via provider
+    if (_notificationProvider != null) {
+      await _notificationProvider!.addNotification(entry);
+    }
+
+    // 2. Show the system notification (Banner/Heads-up)
+    final androidDetails = AndroidNotificationDetails(
+      _habitRemindersChannel.id,
+      _habitRemindersChannel.name,
+      channelDescription: _habitRemindersChannel.description,
+      importance: Importance.high,
+      priority: Priority.high,
+      color: const Color(0xFF6200EE),
+      playSound: true,
+    );
+    const iosDetails = DarwinNotificationDetails(sound: _iosSoundName);
+    final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _plugin.show(
+      entry.id.hashCode.abs(),
+      title,
+      body,
+      details,
+      payload: entry.toJson(),
+    );
   }
 
   // ── Battery optimisation (critical for Realme / OPPO / Xiaomi devices) ──────
