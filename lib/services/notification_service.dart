@@ -192,6 +192,8 @@ class NotificationService {
       channelDescription: _habitRemindersChannel.description,
       importance: Importance.high,
       priority: Priority.high,
+      color: const Color(0xFF6200EE),
+
       playSound: true,
       // Ensure the notification heads-up on locked screen (important for OEM ROMs).
       fullScreenIntent: false,

@@ -16,10 +16,10 @@ class HabitWidgetProvider : AppWidgetProvider() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
 
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val todayDone = prefs.getInt("flutter.widget_today_done", 0)
-        val todayTotal = prefs.getInt("flutter.widget_today_total", 0)
+        val todayDone = prefs.getLong("flutter.widget_today_done", 0L).toInt()
+        val todayTotal = prefs.getLong("flutter.widget_today_total", 0L).toInt()
         val topStreakTitle = prefs.getString("flutter.widget_top_streak_title", "No habits yet") ?: "No habits yet"
-        val topStreakValue = prefs.getInt("flutter.widget_top_streak_value", 0)
+        val topStreakValue = prefs.getLong("flutter.widget_top_streak_value", 0L).toInt()
 
         for (appWidgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.habit_widget_layout)
