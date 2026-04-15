@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <!-- Required to request battery optimization exemption (Realme/OPPO/etc.) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <!-- Keeps CPU awake to deliver alarms reliably on OEM power-managed devices -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
         android:label="LifeLoop"
@@ -41,6 +45,8 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <!-- Realme/OPPO HiSilicon variant -->
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>

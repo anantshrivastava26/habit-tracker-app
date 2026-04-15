@@ -6,6 +6,7 @@ import '../models/habit.dart';
 import '../models/habit_log.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/neu_box.dart';
+import 'habit_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -110,8 +111,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Divider(
-              color: NeuColors.textSecondary(isDark)
-                  .withValues(alpha: 0.15),
+              color: NeuColors.textSecondary(isDark).withValues(alpha: 0.15),
               height: 1,
             ),
           ),
@@ -151,8 +151,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
-                          DateFormat('EEEE, MMMM d')
-                              .format(_selectedDay),
+                          DateFormat('EEEE, MMMM d').format(_selectedDay),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -170,6 +169,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           isDone: isDone,
                           onToggle: () =>
                               provider.toggleForDate(habit.id, _selectedDay),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  HabitDetailScreen(habitId: habit.id),
+                            ),
+                          ),
                         );
                       }),
                     ],
@@ -185,11 +191,13 @@ class _HabitDayItem extends StatelessWidget {
   final Habit habit;
   final bool isDone;
   final Future<void> Function() onToggle;
+  final VoidCallback onTap;
 
   const _HabitDayItem({
     required this.habit,
     required this.isDone,
     required this.onToggle,
+    required this.onTap,
   });
 
   @override
@@ -206,38 +214,54 @@ class _HabitDayItem extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            NeuBox(
-              style: NeuStyle.pressed,
-              borderRadius: 12,
-              depth: 3,
-              width: 44,
-              height: 44,
-              child: Icon(
-                IconData(habit.icon, fontFamily: 'MaterialIcons'),
-                color: color,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Tappable icon + text area → navigates to detail
+            GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    habit.title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: NeuColors.textPrimary(isDark)),
+                  NeuBox(
+                    style: NeuStyle.pressed,
+                    borderRadius: 12,
+                    depth: 3,
+                    width: 44,
+                    height: 44,
+                    child: Icon(
+                      IconData(habit.icon, fontFamily: 'MaterialIcons'),
+                      color: color,
+                      size: 22,
+                    ),
                   ),
-                  Text(
-                    habit.category,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: NeuColors.textSecondary(isDark)),
-                  ),
+                  const SizedBox(width: 12),
                 ],
               ),
             ),
+            // Text column also navigates on tap
+            Expanded(
+              child: GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      habit.title,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: NeuColors.textPrimary(isDark)),
+                    ),
+                    Text(
+                      habit.category,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: NeuColors.textSecondary(isDark)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Mark / Done button stays as the toggle action
             NeuButton(
               onTap: onToggle,
               borderRadius: 12,

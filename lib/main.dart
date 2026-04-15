@@ -69,11 +69,11 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  static const _screens = [
-    HomeScreen(),
-    CalendarScreen(),
-    AnalyticsScreen(),
-    SettingsScreen(),
+  static final _screens = [
+    const HomeScreen(),
+    const CalendarScreen(),
+    const AnalyticsScreen(),
+    const SettingsScreen(),
   ];
 
   @override
