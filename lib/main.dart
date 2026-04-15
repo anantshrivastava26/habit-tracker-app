@@ -30,6 +30,8 @@ void main() async {
   final widgetSync = WidgetSyncService();
   final notificationProvider = NotificationProvider(notificationRepo);
 
+  await settingsProvider.load();
+
   runApp(
     MultiProvider(
       providers: [
@@ -37,7 +39,12 @@ void main() async {
         ChangeNotifierProvider.value(value: notificationProvider),
         ChangeNotifierProvider(
           create: (_) {
-            final provider = HabitProvider(storage, notifications, widgetSync);
+            final provider = HabitProvider(
+              storage,
+              notifications,
+              widgetSync,
+              settingsProvider,
+            );
             provider.load();
             return provider;
           },
@@ -47,7 +54,6 @@ void main() async {
     ),
   );
 
-  settingsProvider.load();
   notificationProvider.load();
   notifications.init(
     notificationProvider: notificationProvider,

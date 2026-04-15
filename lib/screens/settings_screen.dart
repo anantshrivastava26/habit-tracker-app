@@ -33,26 +33,32 @@ class SettingsScreen extends StatelessWidget {
 
           const _SectionHeader('Notifications'),
           SwitchListTile(
-            title: const Text('Enable Reminders'),
+            title: const Text('Scheduled Reminders'),
             subtitle: const Text('Receive habit reminders'),
             secondary: const Icon(Icons.notifications),
-            value: settings.notificationsEnabled,
+            value: settings.reminderNotificationsEnabled,
             activeThumbColor: const Color(0xFF6C63FF),
             onChanged: (v) async {
-              await settings.setNotificationsEnabled(v);
-              if (!v) {
-                await NotificationService().cancelAll();
-              } else {
-                if (!context.mounted) return;
-                final provider =
-                    Provider.of<HabitProvider>(context, listen: false);
-                for (final h in provider.activeHabits) {
-                  if (h.reminderTime != null) {
-                    await NotificationService().scheduleHabitReminder(h);
-                  }
-                }
-              }
+              await settings.setReminderNotificationsEnabled(v);
+              if (!context.mounted) return;
+              await context.read<HabitProvider>().syncReminderSchedules();
             },
+          ),
+          SwitchListTile(
+            title: const Text('Completion Popups'),
+            subtitle: const Text('Show a popup when you hit today\'s goal'),
+            secondary: const Icon(Icons.task_alt),
+            value: settings.completionNotificationsEnabled,
+            activeThumbColor: const Color(0xFF6C63FF),
+            onChanged: settings.setCompletionNotificationsEnabled,
+          ),
+          SwitchListTile(
+            title: const Text('Streak Milestones'),
+            subtitle: const Text('Celebrate new best streaks'),
+            secondary: const Icon(Icons.local_fire_department_outlined),
+            value: settings.milestoneNotificationsEnabled,
+            activeThumbColor: const Color(0xFF6C63FF),
+            onChanged: settings.setMilestoneNotificationsEnabled,
           ),
           // Battery optimisation — critical for Realme / OPPO / Xiaomi devices
           // where aggressive power management silently kills scheduled alarms.

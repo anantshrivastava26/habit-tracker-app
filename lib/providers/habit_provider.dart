@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../providers/settings_provider.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/widget_sync_service.dart';
@@ -12,6 +13,7 @@ class HabitProvider extends ChangeNotifier {
   final StorageService _storage;
   final NotificationService _notifications;
   final WidgetSyncService _widgetSync;
+  final SettingsProvider _settings;
   static const _uuid = Uuid();
 
   List<Habit> _habits = [];
@@ -19,7 +21,12 @@ class HabitProvider extends ChangeNotifier {
   final Map<String, Map<DateTime, int>> _doneCountByHabitAndDate = {};
   final Map<String, Map<DateTime, List<HabitLog>>> _doneLogsByHabitAndDate = {};
 
-  HabitProvider(this._storage, this._notifications, this._widgetSync);
+  HabitProvider(
+    this._storage,
+    this._notifications,
+    this._widgetSync,
+    this._settings,
+  );
 
   List<Habit> get habits => List.unmodifiable(_habits);
   List<HabitLog> get logs => List.unmodifiable(_logs);
@@ -135,6 +142,7 @@ class HabitProvider extends ChangeNotifier {
     _rebuildLogIndexes();
     // On load, check if any streaks need resetting due to missed days
     _checkAndResetStreaks();
+    unawaited(syncReminderSchedules());
     unawaited(_syncWidget());
     notifyListeners();
   }
@@ -144,6 +152,18 @@ class HabitProvider extends ChangeNotifier {
       await _widgetSync.syncFromState(habits: _habits, logs: _logs);
     } catch (_) {
       // Keep widget sync failures isolated from app UX.
+    }
+  }
+
+  Future<void> syncReminderSchedules() async {
+    for (final habit in _habits) {
+      await _notifications.cancelHabitReminder(habit.id);
+      if (_settings.reminderNotificationsEnabled &&
+          habit.isActive &&
+          habit.reminderTime != null &&
+          habit.reminderTime!.isNotEmpty) {
+        await _notifications.scheduleHabitReminder(habit);
+      }
     }
   }
 
@@ -160,7 +180,9 @@ class HabitProvider extends ChangeNotifier {
 
     try {
       await _storage.saveHabit(h);
-      if (h.reminderTime != null) {
+      if (_settings.reminderNotificationsEnabled &&
+          h.reminderTime != null &&
+          h.reminderTime!.isNotEmpty) {
         await _notifications.scheduleHabitReminder(h);
       }
       await _syncWidget();
@@ -183,7 +205,10 @@ class HabitProvider extends ChangeNotifier {
     try {
       await _storage.saveHabit(updated);
       await _notifications.cancelHabitReminder(updated.id);
-      if (updated.reminderTime != null && updated.isActive) {
+      if (_settings.reminderNotificationsEnabled &&
+          updated.reminderTime != null &&
+          updated.reminderTime!.isNotEmpty &&
+          updated.isActive) {
         await _notifications.scheduleHabitReminder(updated);
       }
       await _syncWidget();
@@ -248,12 +273,14 @@ class HabitProvider extends ChangeNotifier {
         await _storage.saveLog(log);
 
         // If 'check' mode target is always 1
-        await _notifications.showLocalNotification(
-          title: 'Goal Reached! 🎯',
-          body: 'You completed your goal for "${habit.title}" today!',
-          type: 'habit.completion',
-          payload: {'habitId': habitId},
-        );
+        if (_settings.completionNotificationsEnabled) {
+          await _notifications.showLocalNotification(
+            title: 'Goal Reached! 🎯',
+            body: 'You completed your goal for "${habit.title}" today!',
+            type: 'habit.completion',
+            payload: {'habitId': habitId},
+          );
+        }
       }
       await _recalcStreak(habitId);
       await _syncWidget();
@@ -282,7 +309,8 @@ class HabitProvider extends ChangeNotifier {
 
     // Notify if milestone reached (completion of daily target)
     final countToday = _countLogsOnDate(habitId, loggedAt);
-    if (countToday == habit.target) {
+    if (countToday == habit.target &&
+        _settings.completionNotificationsEnabled) {
       await _notifications.showLocalNotification(
         title: 'Goal Reached! 🎯',
         body: 'You completed your goal for "${habit.title}" today!',
@@ -346,7 +374,9 @@ class HabitProvider extends ChangeNotifier {
     _habits[idx] = updated;
     await _storage.saveHabit(updated);
 
-    if (isNewLongest && streak > 1) {
+    if (isNewLongest &&
+        streak > 1 &&
+        _settings.milestoneNotificationsEnabled) {
       await _notifications.showLocalNotification(
         title: 'New Personal Best! 🔥',
         body: 'You reached a $streak day streak for "${updated.title}"!',
