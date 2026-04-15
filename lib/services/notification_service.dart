@@ -15,7 +15,7 @@ class NotificationService {
 
   static const AndroidNotificationChannel _habitRemindersChannel =
       AndroidNotificationChannel(
-    'habit_reminders_v2',
+    'habit_reminders_v3',
     'Habit Reminders',
     description: 'Daily reminders for your habits',
     importance: Importance.high,
@@ -37,7 +37,7 @@ class NotificationService {
       // Fall back to the package default location if the platform lookup fails.
     }
 
-    const android = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const android = AndroidInitializationSettings('ic_notification');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -128,6 +128,8 @@ class NotificationService {
       channelDescription: _habitRemindersChannel.description,
       importance: Importance.high,
       priority: Priority.high,
+      color: const Color(0xFF6200EE),
+
       playSound: true,
       // Ensure the notification heads-up on locked screen (important for OEM ROMs).
       fullScreenIntent: false,
