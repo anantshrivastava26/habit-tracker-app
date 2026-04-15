@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
-import '../models/notification_entry.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/widget_sync_service.dart';
@@ -15,6 +16,8 @@ class HabitProvider extends ChangeNotifier {
 
   List<Habit> _habits = [];
   List<HabitLog> _logs = [];
+  final Map<String, Map<DateTime, int>> _doneCountByHabitAndDate = {};
+  final Map<String, Map<DateTime, List<HabitLog>>> _doneLogsByHabitAndDate = {};
 
   HabitProvider(this._storage, this._notifications, this._widgetSync);
 
@@ -42,31 +45,74 @@ class HabitProvider extends ChangeNotifier {
 
   int _countLogsOnDate(String habitId, DateTime date) {
     final targetDay = HabitLog.normalizeDate(date);
-    return _logs
-        .where((log) =>
-            log.habitId == habitId &&
-            log.status == 'done' &&
-            HabitLog.normalizeDate(log.loggedAt) == targetDay)
-        .length;
+    return _doneCountByHabitAndDate[habitId]?[targetDay] ?? 0;
   }
 
   List<HabitLog> _logsForDate(String habitId, DateTime date) {
     final targetDay = HabitLog.normalizeDate(date);
-    return _logs
-        .where((log) =>
-            log.habitId == habitId &&
-            log.status == 'done' &&
-            HabitLog.normalizeDate(log.loggedAt) == targetDay)
-        .toList()
-      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+    final logs = _doneLogsByHabitAndDate[habitId]?[targetDay];
+    if (logs == null) return [];
+    return List<HabitLog>.from(logs);
+  }
+
+  void _rebuildLogIndexes() {
+    _doneCountByHabitAndDate.clear();
+    _doneLogsByHabitAndDate.clear();
+    for (final log in _logs) {
+      _indexLog(log);
+    }
+  }
+
+  void _indexLog(HabitLog log) {
+    if (log.status != 'done') return;
+    final day = HabitLog.normalizeDate(log.loggedAt);
+    final counts = _doneCountByHabitAndDate.putIfAbsent(log.habitId, () => {});
+    counts.update(day, (value) => value + 1, ifAbsent: () => 1);
+
+    final perHabitLogs =
+        _doneLogsByHabitAndDate.putIfAbsent(log.habitId, () => {});
+    final dayLogs = perHabitLogs.putIfAbsent(day, () => []);
+    dayLogs.add(log);
+    dayLogs.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+  }
+
+  void _removeLogFromIndexes(HabitLog log) {
+    if (log.status != 'done') return;
+    final day = HabitLog.normalizeDate(log.loggedAt);
+
+    final counts = _doneCountByHabitAndDate[log.habitId];
+    if (counts != null) {
+      final nextCount = (counts[day] ?? 1) - 1;
+      if (nextCount > 0) {
+        counts[day] = nextCount;
+      } else {
+        counts.remove(day);
+      }
+      if (counts.isEmpty) {
+        _doneCountByHabitAndDate.remove(log.habitId);
+      }
+    }
+
+    final perHabitLogs = _doneLogsByHabitAndDate[log.habitId];
+    final dayLogs = perHabitLogs?[day];
+    if (dayLogs != null) {
+      dayLogs.removeWhere((entry) => entry.id == log.id);
+      if (dayLogs.isEmpty) {
+        perHabitLogs?.remove(day);
+      }
+      if (perHabitLogs != null && perHabitLogs.isEmpty) {
+        _doneLogsByHabitAndDate.remove(log.habitId);
+      }
+    }
   }
 
   void load() {
     _habits = _storage.loadHabits();
     _logs = _storage.loadLogs();
+    _rebuildLogIndexes();
     // On load, check if any streaks need resetting due to missed days
     _checkAndResetStreaks();
-    _syncWidget();
+    unawaited(_syncWidget());
     notifyListeners();
   }
 
@@ -163,6 +209,7 @@ class HabitProvider extends ChangeNotifier {
       if (existing.isNotEmpty) {
         for (final log in existing) {
           _logs.removeWhere((entry) => entry.id == log.id);
+          _removeLogFromIndexes(log);
           await _storage.deleteLog(log.id);
         }
       } else {
@@ -174,6 +221,7 @@ class HabitProvider extends ChangeNotifier {
           status: 'done',
         );
         _logs.add(log);
+        _indexLog(log);
         await _storage.saveLog(log);
 
         // If 'check' mode target is always 1
@@ -206,6 +254,7 @@ class HabitProvider extends ChangeNotifier {
       status: 'done',
     );
     _logs.add(log);
+    _indexLog(log);
     await _storage.saveLog(log);
 
     // Notify if milestone reached (completion of daily target)
@@ -231,6 +280,7 @@ class HabitProvider extends ChangeNotifier {
 
     final log = existing.first;
     _logs.removeWhere((entry) => entry.id == log.id);
+    _removeLogFromIndexes(log);
     await _storage.deleteLog(log.id);
     await _recalcStreak(habitId);
     await _syncWidget();
@@ -248,11 +298,7 @@ class HabitProvider extends ChangeNotifier {
     final idx = _habits.indexWhere((h) => h.id == habitId);
     if (idx == -1) return;
 
-    final doneDates = _logs
-        .where((log) => log.habitId == habitId && log.status == 'done')
-        .map((log) => HabitLog.normalizeDate(log.loggedAt))
-        .toSet()
-        .toList()
+    final doneDates = (_doneLogsByHabitAndDate[habitId]?.keys.toList() ?? [])
       ..sort();
 
     if (doneDates.isEmpty) {

@@ -27,14 +27,18 @@ class NotificationRepository {
   }
 
   Future<void> markAllAsRead() async {
+    final updates = <dynamic, String>{};
     for (var key in _box.keys) {
       final json = _box.get(key);
       if (json != null) {
         final notification = NotificationEntry.fromJson(json);
         if (!notification.isRead) {
-          await save(notification.copyWith(isRead: true));
+          updates[key] = notification.copyWith(isRead: true).toJson();
         }
       }
+    }
+    if (updates.isNotEmpty) {
+      await _box.putAll(updates);
     }
   }
 

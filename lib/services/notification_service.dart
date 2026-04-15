@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -29,6 +31,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  bool _initializing = false;
   NotificationProvider? _notificationProvider;
   GlobalKey<NavigatorState>? _navigatorKey;
 
@@ -36,33 +39,42 @@ class NotificationService {
     NotificationProvider? notificationProvider,
     GlobalKey<NavigatorState>? navigatorKey,
   }) async {
-    if (_initialized) return;
+    if (_initialized || _initializing) return;
+    _initializing = true;
     _notificationProvider = notificationProvider;
     _navigatorKey = navigatorKey;
-
-    tz.initializeTimeZones();
     try {
-      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
-    } catch (_) {}
+      tz.initializeTimeZones();
+      try {
+        final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+        tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+      } catch (_) {}
 
-    const android = AndroidInitializationSettings('ic_notification');
-    const ios = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+      const android = AndroidInitializationSettings('ic_notification');
+      const ios = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
 
-    await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: ios),
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
+      await _plugin.initialize(
+        const InitializationSettings(android: android, iOS: ios),
+        onDidReceiveNotificationResponse: _onNotificationTapped,
+      );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_habitRemindersChannel);
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_habitRemindersChannel);
 
+      _initialized = true;
+      unawaited(_requestAndroidPermissions());
+    } finally {
+      _initializing = false;
+    }
+  }
+
+  Future<void> _requestAndroidPermissions() async {
     try {
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -76,8 +88,6 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestExactAlarmsPermission();
     } catch (_) {}
-
-    _initialized = true;
   }
 
   void _onNotificationTapped(NotificationResponse response) {

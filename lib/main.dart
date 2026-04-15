@@ -25,19 +25,10 @@ void main() async {
 
   final storage = StorageService();
   final notificationRepo = NotificationRepository();
-  final notificationProvider = NotificationProvider(notificationRepo);
-  notificationProvider.load();
-
   final notifications = NotificationService();
-  await notifications.init(
-    notificationProvider: notificationProvider,
-    navigatorKey: navigatorKey,
-  );
-
   final settingsProvider = SettingsProvider();
-  await settingsProvider.load();
-
   final widgetSync = WidgetSyncService();
+  final notificationProvider = NotificationProvider(notificationRepo);
 
   runApp(
     MultiProvider(
@@ -54,6 +45,13 @@ void main() async {
       ],
       child: const HabitTrackerApp(),
     ),
+  );
+
+  settingsProvider.load();
+  notificationProvider.load();
+  notifications.init(
+    notificationProvider: notificationProvider,
+    navigatorKey: navigatorKey,
   );
 }
 

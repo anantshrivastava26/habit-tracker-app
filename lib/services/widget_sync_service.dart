@@ -13,10 +13,20 @@ class WidgetSyncService {
   static const String _kTopStreakValue = 'widget_top_streak_value';
   static const String _kLastUpdated = 'widget_last_updated';
 
+  Future<SharedPreferences>? _prefsFuture;
+  DateTime? _lastSyncAt;
+
   Future<void> syncFromState({
     required List<Habit> habits,
     required List<HabitLog> logs,
   }) async {
+    final now = DateTime.now();
+    if (_lastSyncAt != null &&
+        now.difference(_lastSyncAt!) < const Duration(milliseconds: 300)) {
+      return;
+    }
+    _lastSyncAt = now;
+
     final activeHabits = habits.where((habit) => habit.isActive).toList();
     final today = HabitLog.normalizeDate(DateTime.now());
 
@@ -45,24 +55,22 @@ class WidgetSyncService {
 
     final topStreakTitle = topStreakHabit?.title ?? 'No habits yet';
     final topStreakValue = topStreakHabit?.currentStreak ?? 0;
+    final lastUpdated = now.toIso8601String();
 
     // Store values in SharedPreferences so Android widget can read them directly.
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await (_prefsFuture ??= SharedPreferences.getInstance());
     await prefs.setInt(_kTodayDone, todayDone);
     await prefs.setInt(_kTodayTotal, activeHabits.length);
     await prefs.setString(_kTopStreakTitle, topStreakTitle);
     await prefs.setInt(_kTopStreakValue, topStreakValue);
-    await prefs.setString(_kLastUpdated, DateTime.now().toIso8601String());
+    await prefs.setString(_kLastUpdated, lastUpdated);
 
     // Mirror values in home_widget storage and request a widget refresh.
     await HomeWidget.saveWidgetData<int>(_kTodayDone, todayDone);
     await HomeWidget.saveWidgetData<int>(_kTodayTotal, activeHabits.length);
     await HomeWidget.saveWidgetData<String>(_kTopStreakTitle, topStreakTitle);
     await HomeWidget.saveWidgetData<int>(_kTopStreakValue, topStreakValue);
-    await HomeWidget.saveWidgetData<String>(
-      _kLastUpdated,
-      DateTime.now().toIso8601String(),
-    );
+    await HomeWidget.saveWidgetData<String>(_kLastUpdated, lastUpdated);
 
     await HomeWidget.updateWidget(name: androidWidgetProvider);
   }
