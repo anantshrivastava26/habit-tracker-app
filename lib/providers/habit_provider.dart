@@ -63,6 +63,29 @@ class HabitProvider extends ChangeNotifier {
     }
   }
 
+  List<DateTime> _doneDatesForHabit(String habitId) {
+    return (_doneLogsByHabitAndDate[habitId]?.keys.toList() ?? [])..sort();
+  }
+
+  int _calculateCurrentStreak(List<DateTime> doneDates) {
+    if (doneDates.isEmpty) return 0;
+
+    final today = HabitLog.normalizeDate(DateTime.now());
+    final yesterday = today.subtract(const Duration(days: 1));
+    final doneDateSet = doneDates.toSet();
+    final lastDate = doneDates.last;
+
+    if (lastDate.isBefore(yesterday)) return 0;
+
+    int streak = 0;
+    var cursor = lastDate;
+    while (doneDateSet.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
   void _indexLog(HabitLog log) {
     if (log.status != 'done') return;
     final day = HabitLog.normalizeDate(log.loggedAt);
@@ -298,8 +321,7 @@ class HabitProvider extends ChangeNotifier {
     final idx = _habits.indexWhere((h) => h.id == habitId);
     if (idx == -1) return;
 
-    final doneDates = (_doneLogsByHabitAndDate[habitId]?.keys.toList() ?? [])
-      ..sort();
+    final doneDates = _doneDatesForHabit(habitId);
 
     if (doneDates.isEmpty) {
       final updated = _habits[idx].copyWith(
@@ -311,17 +333,8 @@ class HabitProvider extends ChangeNotifier {
       return;
     }
 
-    // Calculate current streak from today backwards
-    final today = HabitLog.normalizeDate(DateTime.now());
-    int streak = 0;
-    DateTime cursor = today;
-
-    while (doneDates.contains(cursor)) {
-      streak++;
-      cursor = cursor.subtract(const Duration(days: 1));
-    }
-
     final lastDate = doneDates.last;
+    final streak = _calculateCurrentStreak(doneDates);
     final longest = _habits[idx].longestStreak;
     final isNewLongest = streak > longest;
     
@@ -360,19 +373,20 @@ class HabitProvider extends ChangeNotifier {
 
   /// On app launch, reset streaks for habits that were missed yesterday.
   void _checkAndResetStreaks() {
-    final today = HabitLog.normalizeDate(DateTime.now());
-    final yesterday = today.subtract(const Duration(days: 1));
-
     for (int i = 0; i < _habits.length; i++) {
       final h = _habits[i];
-      if (!h.isActive || h.currentStreak == 0) continue;
-      final last = h.lastCompletedDate;
-      if (last == null) continue;
+      final doneDates = _doneDatesForHabit(h.id);
+      final recalculatedStreak = _calculateCurrentStreak(doneDates);
+      final lastCompletedDate = doneDates.isEmpty ? null : doneDates.last;
 
-      // If last completion was before yesterday, streak is broken
-      if (last.isBefore(yesterday)) {
-        _habits[i] = h.copyWith(currentStreak: 0);
-        _storage.saveHabit(_habits[i]);
+      if (h.currentStreak != recalculatedStreak ||
+          h.lastCompletedDate != lastCompletedDate) {
+        final updated = h.copyWith(
+          currentStreak: recalculatedStreak,
+          lastCompletedDate: lastCompletedDate,
+        );
+        _habits[i] = updated;
+        _storage.saveHabit(updated);
       }
     }
   }
