@@ -338,60 +338,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-class _NotificationBadge extends StatelessWidget {
-  final bool isDark;
-
-  const _NotificationBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>(
-      (p) => p.unreadCount,
-    );
-
-    return Stack(
-      children: [
-        NeuButton(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
-          borderRadius: 12,
-          padding: const EdgeInsets.all(10),
-          depth: 4,
-          child: Icon(
-            unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_rounded,
-            color: unreadCount > 0 ? Colors.orange : NeuColors.textSecondary(isDark),
-            size: 22,
-          ),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                unreadCount > 9 ? '9+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ── Empty filter result ────────────────────────────────────────────────────────
 
 class _NoFilterResults extends StatelessWidget {
@@ -433,60 +379,6 @@ class _NoFilterResults extends StatelessWidget {
   }
 }
 
-class _NotificationBadge extends StatelessWidget {
-  final bool isDark;
-
-  const _NotificationBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>(
-      (p) => p.unreadCount,
-    );
-
-    return Stack(
-      children: [
-        NeuButton(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
-          borderRadius: 12,
-          padding: const EdgeInsets.all(10),
-          depth: 4,
-          child: Icon(
-            unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_rounded,
-            color: unreadCount > 0 ? Colors.orange : NeuColors.textSecondary(isDark),
-            size: 22,
-          ),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                unreadCount > 9 ? '9+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ── Progress Bar ──────────────────────────────────────────────────────────────
 
 class _NeuProgressBar extends StatelessWidget {
@@ -515,60 +407,6 @@ class _NeuProgressBar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _NotificationBadge extends StatelessWidget {
-  final bool isDark;
-
-  const _NotificationBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>(
-      (p) => p.unreadCount,
-    );
-
-    return Stack(
-      children: [
-        NeuButton(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
-          borderRadius: 12,
-          padding: const EdgeInsets.all(10),
-          depth: 4,
-          child: Icon(
-            unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_rounded,
-            color: unreadCount > 0 ? Colors.orange : NeuColors.textSecondary(isDark),
-            size: 22,
-          ),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                unreadCount > 9 ? '9+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -615,60 +453,6 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _NotificationBadge extends StatelessWidget {
-  final bool isDark;
-
-  const _NotificationBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>(
-      (p) => p.unreadCount,
-    );
-
-    return Stack(
-      children: [
-        NeuButton(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
-          borderRadius: 12,
-          padding: const EdgeInsets.all(10),
-          depth: 4,
-          child: Icon(
-            unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_rounded,
-            color: unreadCount > 0 ? Colors.orange : NeuColors.textSecondary(isDark),
-            size: 22,
-          ),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                unreadCount > 9 ? '9+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ── FAB ───────────────────────────────────────────────────────────────────────
 
 class _NeuFab extends StatelessWidget {
@@ -697,60 +481,6 @@ class _NeuFab extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _NotificationBadge extends StatelessWidget {
-  final bool isDark;
-
-  const _NotificationBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>(
-      (p) => p.unreadCount,
-    );
-
-    return Stack(
-      children: [
-        NeuButton(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
-          borderRadius: 12,
-          padding: const EdgeInsets.all(10),
-          depth: 4,
-          child: Icon(
-            unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_rounded,
-            color: unreadCount > 0 ? Colors.orange : NeuColors.textSecondary(isDark),
-            size: 22,
-          ),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                unreadCount > 9 ? '9+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -793,60 +523,6 @@ class _HabitSearch extends SearchDelegate<String> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _NotificationBadge extends StatelessWidget {
-  final bool isDark;
-
-  const _NotificationBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>(
-      (p) => p.unreadCount,
-    );
-
-    return Stack(
-      children: [
-        NeuButton(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
-          borderRadius: 12,
-          padding: const EdgeInsets.all(10),
-          depth: 4,
-          child: Icon(
-            unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_rounded,
-            color: unreadCount > 0 ? Colors.orange : NeuColors.textSecondary(isDark),
-            size: 22,
-          ),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                unreadCount > 9 ? '9+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
